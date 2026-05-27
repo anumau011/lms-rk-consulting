@@ -1,12 +1,20 @@
-import React, { useState } from "react";
-import { useSignIn } from "@clerk/clerk-react";
+import React, { useState, useEffect } from "react";
+import { useSignIn, useUser } from "@clerk/clerk-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import { assets } from "../../assets/assets";
 
 const ResetPasswordPage = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { user, isLoaded: userLoaded } = useUser();
   const navigate = useNavigate();
+
+  // Redirect to home if user is already logged in
+  useEffect(() => {
+    if (userLoaded && user) {
+      navigate("/");
+    }
+  }, [userLoaded, user, navigate]);
 
   const [step, setStep] = useState(1); // 1: Email, 2: Code + New Password
   const [email, setEmail] = useState("");

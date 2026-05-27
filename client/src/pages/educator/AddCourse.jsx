@@ -8,7 +8,7 @@ import * as tus from 'tus-js-client';
 import {
   LayoutDashboard, List, DollarSign, Upload,
   Settings, CheckCircle, Save, ArrowLeft, Plus,
-  FileText, Video, HelpCircle, Trash2, Edit3, GripVertical, ChevronDown, ChevronUp, ChevronRight, X, Folder, Link as LinkIcon, Cloud, Play
+  FileText, Video, HelpCircle, Trash2, Edit3, GripVertical, ChevronDown, ChevronUp, ChevronRight, X, Play
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -82,7 +82,6 @@ const createApi = (getToken) => {
     updatePricing: (courseId, data) => request(`/api/v1/courses/${courseId}/pricing`, { method: 'PATCH', body: JSON.stringify(data) }),
     publishCourse: (courseId) => request(`/api/v1/courses/${courseId}/publish`, { method: 'POST' }),
     unpublishCourse: (courseId) => request(`/api/v1/courses/${courseId}/unpublish`, { method: 'POST' }),
-    getVideoLibrary: (courseId) => request(`/api/v1/media/bunny/library/${courseId}`),
     getLectureNotes: (courseId, lectureId) => request(`/api/v1/courses/${courseId}/lectures/${lectureId}/notes`),
     uploadLectureNote: (courseId, lectureId, formData) => request(`/api/v1/courses/${courseId}/lectures/${lectureId}/notes/upload`, { method: 'POST', body: formData }),
     deleteLectureNote: (courseId, lectureId, noteId) => request(`/api/v1/courses/${courseId}/lectures/${lectureId}/notes/${noteId}`, { method: 'DELETE' }),
@@ -113,7 +112,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
   });
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState('upload'); 
+
 
   // Local video state (updated immediately after upload)
   const [localVideoInfo, setLocalVideoInfo] = useState(null);
@@ -146,12 +145,6 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
   const [showNotes, setShowNotes] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [libraryId, setLibraryId] = useState('');
-
-  // Library video states
-  const [libraryVideos, setLibraryVideos] = useState([]);
-  const [loadingLibrary, setLoadingLibrary] = useState(false);
-  const [libraryError, setLibraryError] = useState(null);
-  const [previewingLibraryVideo, setPreviewingLibraryVideo] = useState(null);
 
   // Notes upload states
   const [notesUploading, setNotesUploading] = useState(false);
@@ -191,59 +184,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
     setShowNotes(lectureNotes.length > 0);
   }, [lecture]);
 
-  // Fetch library videos every time library tab becomes active
-  useEffect(() => {
-    if (activeTab === 'library' && !loadingLibrary) {
-      fetchLibraryVideos();
-    }
-  }, [activeTab]);
 
-  const fetchLibraryVideos = async () => {
-    setLoadingLibrary(true);
-    setLibraryError(null);
-    try {
-      const result = await api.getVideoLibrary(courseId);
-      if (result.success) {
-        console.log('Fetched library videos:', result.videos);
-        setLibraryVideos(result.videos || []);
-        setLibraryId(result[0]?.videoLibraryId || '');
-      } else {
-        setLibraryError(result.error || 'Failed to load videos');
-      }
-    } catch (error) {
-      console.error('Error fetching library videos:', error);
-      setLibraryError(error.message);
-    } finally {
-      setLoadingLibrary(false);
-    }
-  };
-
-  const handleSelectLibraryVideo = async (video) => {
-    try {
-      // Store video info locally for immediate use
-      setLocalVideoInfo(video);
-      
-      // Update lecture with video details on backend
-      const result = await api.updateLecture(courseId, lecture._id, {...video});
-
-      if (result.success) {
-        setIsPreview(true);
-        setHasUnsavedChanges(false);
-        toast.success('Video attached successfully!');
-        
-        // Trigger refresh by calling onEdit
-        if (onEdit && result.data) {
-          onEdit(result.data);
-        }
-      } else {
-        throw new Error('Failed to attach video');
-      }
-    } catch (error) {
-      console.error('Error attaching library video:', error);
-      setLocalVideoInfo(null);
-      toast.error('Failed to attach video: ' + error.message);
-    }
-  };
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -513,7 +454,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
     }
   };
 
-  const handleThumbnailLoad = async() => {
+  const handleThumbnailLoad = async () => {
     const token = await getToken();
     const response = await axios.get(`${backendUrl}/api/video/${lecture._id}/signed-thumbnail-url`, {
       headers: {
@@ -524,12 +465,13 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
     setThumbnailUrl(response.data.thumbnailUrl);
   }
 
-  const handleVideoLoad = async() => { 
+  const handleVideoLoad = async () => {
     const token = await getToken();
     const response = await axios.get(`${backendUrl}/api/video/${lecture._id}/signed-video-url`, {
       headers: {
         Authorization: `Bearer ${token}`
-      }    });
+      }
+    });
     console.log('Received video URL:', response.data.playbackUrl);
     setSignedVideoUrl(response.data.playbackUrl);
   }
@@ -540,7 +482,6 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
   };
 
   const closeLibraryVideoPreview = () => {
-    setPreviewingLibraryVideo(null);
   };
 
   return (
@@ -579,14 +520,12 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                   <span className="text-xs text-gray-600">Free Preview:</span>
                   <button
                     onClick={toggleFreePreview}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      isFreePreview ? 'bg-indigo-600' : 'bg-gray-300'
-                    }`}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${isFreePreview ? 'bg-indigo-600' : 'bg-gray-300'
+                      }`}
                   >
                     <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        isFreePreview ? 'translate-x-5' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isFreePreview ? 'translate-x-5' : 'translate-x-1'
+                        }`}
                     />
                   </button>
                   {isFreePreview && (
@@ -620,7 +559,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
 
               {/* Expand/Collapse arrows - always visible */}
               <button
-                onClick={() => {handleThumbnailLoad(); setIsExpanded(!isExpanded);}}
+                onClick={() => { handleThumbnailLoad(); setIsExpanded(!isExpanded); }}
                 className="text-gray-600 hover:text-gray-800 transition-colors"
                 title={isExpanded ? 'Collapse' : 'Expand'}
               >
@@ -667,7 +606,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                     {/* Thumbnail */}
                     <div
                       className="w-32 h-20 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg overflow-hidden flex-shrink-0 relative cursor-pointer group shadow-md hover:shadow-xl transition-all duration-300"
-                      onClick={() => {handleVideoLoad(); setShowVideoPlayer(true); }}
+                      onClick={() => { handleVideoLoad(); setShowVideoPlayer(true); }}
                     >
                       <img
                         src={thumbnailUrl}
@@ -705,180 +644,82 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                 </div>
               ) : (
                 <div>
-                  {/* Tabs with Cancel Button */}
                   <div className="flex items-center justify-between border-b border-gray-200 mb-4">
                     <div className="flex">
-                      <button
-                        onClick={() => setActiveTab('upload')}
-                        className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'upload' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                      >
+                      <button className="px-4 py-2 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600">
                         Upload Video
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('library')}
-                        className={`px-4 py-2 text-sm font-medium transition-colors ${activeTab === 'library' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}
-                      >
-                        Add from library
                       </button>
                     </div>
                   </div>
 
-                  {activeTab === 'upload' && (
-                    <div>
-                      {uploading ? (
-                        <div className="space-y-4">
-                          {/* Upload Status Table */}
-                          <div className="border border-gray-200 rounded-lg overflow-hidden">
-                            <table className="w-full text-sm">
-                              <thead className="bg-gray-50 border-b border-gray-200">
-                                <tr>
-                                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Filename</th>
-                                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Type</th>
-                                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
-                                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
-                                  <th className="px-4 py-3 text-right font-semibold text-gray-700"></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr className="border-b border-gray-100">
-                                  <td className="px-4 py-3 text-gray-900">{selectedFile?.name || 'v2o.mp4'}</td>
-                                  <td className="px-4 py-3 text-gray-600">Video</td>
-                                  <td className="px-4 py-3">
-
-                                    <div className="space-y-1">
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-                                          <div
-                                            className="bg-indigo-600 h-full transition-all duration-300"
-                                            style={{ width: `${uploadProgress}%` }}
-                                          />
-                                        </div>
-                                        <span className="text-xs text-gray-600 w-12">{uploadProgress}%</span>
+                  <div>
+                    {uploading ? (
+                      <div className="space-y-4">
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="px-4 py-3 text-left font-semibold text-gray-700">Filename</th>
+                                <th className="px-4 py-3 text-left font-semibold text-gray-700">Type</th>
+                                <th className="px-4 py-3 text-left font-semibold text-gray-700">Status</th>
+                                <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
+                                <th className="px-4 py-3 text-right font-semibold text-gray-700"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-b border-gray-100">
+                                <td className="px-4 py-3 text-gray-900">{selectedFile?.name || 'v2o.mp4'}</td>
+                                <td className="px-4 py-3 text-gray-600">Video</td>
+                                <td className="px-4 py-3">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                                        <div
+                                          className="bg-indigo-600 h-full transition-all duration-300"
+                                          style={{ width: `${uploadProgress}%` }}
+                                        />
                                       </div>
+                                      <span className="text-xs text-gray-600 w-12">{uploadProgress}%</span>
                                     </div>
-                                  </td>
-                                  <td className="px-4 py-3 text-gray-600">01/30/2026</td>
-                                  <td className="px-4 py-3 text-right">
-                                      <button onClick={handleCancelUpload} className="text-red-500 hover:text-red-700">
-                                        <X size={16} />
-                                      </button>
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-gray-600">01/30/2026</td>
+                                <td className="px-4 py-3 text-right">
+                                  <button onClick={handleCancelUpload} className="text-red-500 hover:text-red-700">
+                                    <X size={16} />
+                                  </button>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg">
+                          <input
+                            type="file"
+                            accept="video/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                            id={`video-upload-${lecture._id}`}
+                          />
+                          <div className="flex-1 text-gray-500 text-sm">
+                            {selectedFile ? selectedFile.name : 'No file selected'}
                           </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {/* File Selector */}
-                          <div className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg">
-                            <input
-                              type="file"
-                              accept="video/*"
-                              onChange={handleFileSelect}
-                              className="hidden"
-                              id={`video-upload-${lecture._id}`}
-                            />
-                            <div className="flex-1 text-gray-500 text-sm">
-                              {selectedFile ? selectedFile.name : 'No file selected'}
-                            </div>
-                            <label
-                              htmlFor={`video-upload-${lecture._id}`}
-                              className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 cursor-pointer"
-                            >
-                              Select Video
-                            </label>
-                          </div>
-                          <p className="text-xs text-gray-600">
-                            <span className="font-semibold">Note:</span> All files should be at least 720p and less than 4.0 GB.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {activeTab === 'library' && (
-                    <div className="space-y-4">
-                      {loadingLibrary ? (
-                        <div className="text-center py-8">
-                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                          <p className="text-gray-600">Loading library videos...</p>
-                        </div>
-                      ) : libraryError ? (
-                        <div className="text-center py-8">
-                          <p className="text-red-600 mb-4">{libraryError}</p>
-                          <button
-                            onClick={fetchLibraryVideos}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                          <label
+                            htmlFor={`video-upload-${lecture._id}`}
+                            className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 cursor-pointer"
                           >
-                            Retry
-                          </button>
+                            Select Video
+                          </label>
                         </div>
-                      ) : libraryVideos.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <Video size={48} className="mx-auto mb-4 text-gray-400" />
-                          <p className="font-medium mb-2">No videos in library yet</p>
-                          <p className="text-sm text-gray-400">Upload a video first to see it here</p>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="mb-4">
-                            <p className="text-sm text-gray-600 mb-2">Select a video from your library ({libraryVideos.length} available)</p>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                            {libraryVideos.map((video,idx) => (
-                              <div
-                                key={video.videoGuid || idx}
-                                className="border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-all group relative"
-                              >
-                                <div className="flex items-start gap-3">
-                                  {/* Thumbnail - Clickable to preview */}
-                                  <div 
-                                    onClick={() => setPreviewingLibraryVideo(video)}
-                                    className="w-24 h-16 bg-gradient-to-br from-gray-800 to-gray-900 rounded overflow-hidden flex-shrink-0 relative cursor-pointer"
-                                  >
-                                    <img
-                                      src={`https://vz-0b464085-f25.b-cdn.net/${video.videoGuid}/thumbnail.jpg`}
-                                      alt={video.title || 'Video thumbnail'}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        e.target.style.display = 'none';
-                                        e.target.parentElement.classList.add('flex', 'items-center', 'justify-center');
-                                      }}
-                                    />
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-40 transition-all">
-                                      <div className="w-10 h-10 rounded-full bg-white bg-opacity-0 hover:bg-opacity-90 flex items-center justify-center transition-all">
-                                        <Play size={16} className="text-indigo-600 ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="currentColor" />
-                                      </div>
-                                    </div>
-                                  </div>
-                                  {/* Info */}
-                                  <div className="flex-1 min-w-0">
-                                    <h6 className="font-medium text-gray-900 text-sm truncate mb-1">{video.title || 'Untitled Video'}</h6>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                      {video.length && <span>{Math.floor(video.length / 60)}:{(video.length % 60).toString().padStart(2, '0')}</span>}
-                                      {video.views !== undefined && <span>• {video.views} views</span>}
-                                    </div>
-                                    {video.storageSize && (
-                                      <p className="text-xs text-gray-400 mt-1">
-                                        {(video.storageSize / (1024 * 1024)).toFixed(1)} MB
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                {/* Add Button - Bottom Right */}
-                                <button
-                                  onClick={() => handleSelectLibraryVideo(video)}
-                                  className="absolute bottom-2 right-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-1 shadow-sm"
-                                >
-                                  <Plus size={12} /> Add
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        <p className="text-xs text-gray-600">
+                          <span className="font-semibold">Note:</span> All files should be at least 720p and less than 4.0 GB.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>}
@@ -1079,59 +920,12 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
         </div>
       )}
 
-      {/* Library Video Preview Modal */}
-      {previewingLibraryVideo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4" onClick={closeLibraryVideoPreview}>
-          <div className="relative w-full max-w-5xl" onClick={(e) => e.stopPropagation()}>
-            {/* Header with title and close button */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-white">
-                <h3 className="text-lg font-semibold">{previewingLibraryVideo.title || 'Video Preview'}</h3>
-                <p className="text-sm text-gray-300">
-                  {previewingLibraryVideo.length && `${Math.floor(previewingLibraryVideo.length / 60)}:${(previewingLibraryVideo.length % 60).toString().padStart(2, '0')}`}
-                  {previewingLibraryVideo.views !== undefined && ` • ${previewingLibraryVideo.views} views`}
-                </p>
-              </div>
-              <button
-                onClick={closeLibraryVideoPreview}
-                className="text-white hover:text-gray-300 transition-colors flex items-center gap-2 bg-black bg-opacity-50 px-4 py-2 rounded-lg"
-              >
-                <X size={24} />
-                <span className="text-sm font-medium">Close</span>
-              </button>
-            </div>
-            {/* Video Player */}
-            <div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl">
-              <iframe
-                src={`https://iframe.mediadelivery.net/embed/${previewingLibraryVideo.videoLibraryId}/${previewingLibraryVideo.videoGuid}`}
-                loading="lazy"
-                style={{ border: 0, position: 'absolute', width: '100%', height: '100%' }}
-                allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;"
-                allowFullScreen={true}
-                className="rounded-xl"
-              />
-            </div>
-            {/* Add Button below video */}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => {
-                  handleSelectLibraryVideo(previewingLibraryVideo);
-                  setPreviewingLibraryVideo(null);
-                }}
-                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg"
-              >
-                <Plus size={16} /> Add to Lecture
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 
-const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, onAddLecture, api }) => {
+const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, api }) => {
   const [lectures, setLectures] = useState([]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddLecture, setShowAddLecture] = useState(false);
@@ -1140,7 +934,7 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => { loadLectures(); }, [section._id]);
-  //ok
+
   const loadLectures = async () => {
     const result = await api.getLectures(courseId, section._id);
     if (result.success) {
@@ -1148,7 +942,7 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
       setHasReordered(false);
     }
   };
-  //ok
+
   const handleCreateLectureInline = async () => {
     if (!newLectureTitle.trim()) return;
     const result = await api.createLecture(courseId, section._id, { title: newLectureTitle, lectureType: 'VIDEO' });
@@ -1156,11 +950,10 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
       setNewLectureTitle('');
       setShowAddLecture(false);
       loadLectures();
-      toast.success("Lecture added");
+      toast.success('Lecture added');
     }
   };
 
-  //ok
   const handleMoveLecture = (fromIndex, toIndex) => {
     const updated = [...lectures];
     const [moved] = updated.splice(fromIndex, 1);
@@ -1169,30 +962,29 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
     setHasReordered(true);
   };
 
-  //ok
   const handleSaveOrder = async () => {
     setIsSaving(true);
     try {
-      const lectureOrders = lectures.map((l, i) => ({ lectureId: l._id, order: i }));
+      const lectureOrders = lectures.map((lectureItem, lectureIndex) => ({ lectureId: lectureItem._id, order: lectureIndex }));
       await api.reorderLectures(courseId, section._id, lectureOrders);
       setHasReordered(false);
       toast.success('Lecture order saved');
     } catch (error) {
-      toast.error('Failed to save order');
+      toast.error('Failed to save lecture order');
     } finally {
       setIsSaving(false);
     }
   };
-  //ok
+
   const handleCancelReorder = () => {
     loadLectures();
   };
-  //ok
+
   const handleDeleteLecture = async (lectureId) => {
-    if (window.confirm('Delete this lecture?')) {
-      await api.deleteLecture(courseId, lectureId);
-      loadLectures();
-    }
+    if (!window.confirm('Delete this lecture?')) return;
+    await api.deleteLecture(courseId, lectureId);
+    loadLectures();
+    toast.success('Lecture deleted');
   };
 
   const [{ isDragging }, drag] = useDrag({
@@ -1232,7 +1024,6 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
 
       {isExpanded && (
         <div className="p-4 space-y-2">
-          {/* Save Order Button */}
           {hasReordered && (
             <div className="flex items-center justify-end gap-2 mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
               <span className="text-sm text-amber-700 font-medium">Unsaved changes</span>
@@ -1254,10 +1045,13 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
 
           {lectures.map((lecture, idx) => (
             <DraggableLecture
-              key={lecture._id} lecture={lecture} index={idx} sectionId={section._id} courseId={courseId}
+              key={lecture._id}
+              lecture={lecture}
+              index={idx}
+              sectionId={section._id}
+              courseId={courseId}
               onMove={handleMoveLecture}
               onDelete={handleDeleteLecture}
-              // ok
               onEdit={(lec) => {
                 const newTitle = prompt('Edit lecture title:', lec.title);
                 if (newTitle && newTitle.trim()) {
@@ -1271,7 +1065,6 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
             />
           ))}
 
-          {/* Inline Add Lecture */}
           {showAddLecture ? (
             <div className="mt-2 bg-white border border-indigo-200 rounded-lg p-3 shadow-sm animate-in fade-in slide-in-from-top-2">
               <div className="flex items-center gap-2 mb-2">
@@ -1279,10 +1072,10 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
                 <input
                   autoFocus
                   value={newLectureTitle}
-                  onChange={e => setNewLectureTitle(e.target.value)}
+                  onChange={(e) => setNewLectureTitle(e.target.value)}
                   placeholder="Enter a Title"
                   className="flex-1 text-sm p-1 border-b border-gray-200 focus:border-indigo-500 outline-none transition-colors"
-                  onKeyDown={e => e.key === 'Enter' && handleCreateLectureInline()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateLectureInline()}
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -1306,362 +1099,11 @@ const DraggableSection = ({ section, index, courseId, onMove, onDelete, onEdit, 
   );
 };
 
-// --- SUB-COMPONENTS (TABS) ---
-
-// Bulk Upload Modal Component
-const BulkUploadModal = ({ isOpen, onClose }) => {
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadComplete, setUploadComplete] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [fileProgress, setFileProgress] = useState({});
-  const { getToken } = useAuth();
-
-  if (!isOpen) return null;
-
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    const fileData = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      name: file.name,
-      size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
-      status: 'selected'
-    }));
-    setSelectedFiles(prev => [...prev, ...fileData]);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
-    const fileData = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      name: file.name,
-      size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
-      status: 'selected'
-    }));
-    setSelectedFiles(prev => [...prev, ...fileData]);
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const removeFile = (id) => {
-    setSelectedFiles(prev => prev.filter(f => f.id !== id));
-  };
-
-  const startUpload = async () => {
-    const token = await getToken();
-    console.log("start uplod function.")
-    setUploading(true);
-    setUploadProgress(0);
-
-    const totalFiles = selectedFiles.length;
-    let uploadedCount = 0;
-
-    try {
-      // Upload each file
-      for (const fileData of selectedFiles) {
-        const { file } = fileData;
-
-        // Get upload URL from backend
-        const res = await fetch(`${backendUrl}/api/videos/upload-url`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ filename: file.name, contentType: file.type })
-        });
-        const { uploadUrl } = await res.json();
-        console.log(uploadUrl)
-
-        // Upload file to the signed URL
-        await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type
-          }
-        });
-
-        uploadedCount++;
-        const progress = Math.floor((uploadedCount / totalFiles) * 100);
-        setUploadProgress(progress);
-
-        // Update individual file progress
-        setFileProgress(prev => ({
-          ...prev,
-          [fileData.id]: 100
-        }));
-      }
-
-      // All uploads complete
-      setUploadProgress(100);
-      setTimeout(() => {
-        setUploading(false);
-        setUploadComplete(true);
-      }, 500);
-
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Upload failed: ' + error.message);
-      setUploading(false);
-    }
-  };
-
-  const handleDone = () => {
-    setSelectedFiles([]);
-    setUploading(false);
-    setUploadComplete(false);
-    setUploadProgress(0);
-    setFileProgress({});
-    onClose();
-  };
-
-  const cancelUpload = () => {
-    setUploading(false);
-    setUploadProgress(0);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            {selectedFiles.length > 0 && !uploadComplete && (
-              <h2 className="text-2xl font-bold text-gray-900">
-                {uploading ? `Uploading ${selectedFiles.length} files` : `${selectedFiles.length} files selected`}
-              </h2>
-            )}
-            {uploadComplete && <h2 className="text-2xl font-bold text-gray-900">Upload complete</h2>}
-            {selectedFiles.length === 0 && <h2 className="text-2xl font-bold text-gray-900">Bulk Upload</h2>}
-          </div>
-          <div className="flex items-center gap-2">
-            {selectedFiles.length > 0 && !uploading && (
-              <button
-                onClick={handleDone}
-                className="text-indigo-600 font-medium hover:underline"
-              >
-                + Add more
-              </button>
-            )}
-            {uploadComplete ? (
-              <button
-                onClick={handleDone}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
-              >
-                Done
-              </button>
-            ) : (
-              <button
-                onClick={selectedFiles.length > 0 ? () => setSelectedFiles([]) : onClose}
-                className="text-gray-600 font-medium hover:text-gray-900"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Modal Content */}
-        <div className="p-8">
-          {selectedFiles.length > 0 ? (
-            <>
-              {/* Selected Files Grid */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                {selectedFiles.map((file) => (
-                  <div key={file.id} className="relative">
-                    <div className="bg-green-600 rounded-lg aspect-video flex items-center justify-center relative overflow-hidden">
-                      {/* Video Icon Overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-green-600">
-                        <div className="w-24 h-24 bg-white rounded-lg flex items-center justify-center">
-                          <Video size={48} className="text-green-600" />
-                        </div>
-                      </div>
-
-                      {/* Uploading State */}
-                      {uploading && !uploadComplete && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                          <div className="w-16 h-16 rounded-full border-4 border-white/30 border-t-white flex items-center justify-center">
-                            <div className="text-white text-2xl font-bold">||</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Complete State */}
-                      {uploadComplete && (
-                        <div className="absolute top-2 right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                          <CheckCircle size={20} className="text-white" fill="white" />
-                        </div>
-                      )}
-
-                      {/* Remove Button (only when not uploading) */}
-                      {!uploading && !uploadComplete && (
-                        <button
-                          onClick={() => removeFile(file.id)}
-                          className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center hover:bg-black"
-                        >
-                          <X size={16} className="text-white" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-2">
-                      <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                      <p className="text-xs text-gray-500">{file.size}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Upload Progress Bar */}
-              {uploading && (
-                <div className="border-t pt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-900">
-                          Uploading: {uploadProgress}%
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {selectedFiles.length - Math.floor((uploadProgress / 100) * selectedFiles.length)} of {selectedFiles.length} files uploaded • {Math.ceil((100 - uploadProgress) * 0.5)} mins left
-                        </span>
-                      </div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-indigo-600 transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={cancelUpload}
-                      className="p-2 hover:bg-gray-100 rounded-full"
-                    >
-                      <X size={20} className="text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Button */}
-              {!uploading && !uploadComplete && (
-                <button
-                  onClick={startUpload}
-                  className="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors"
-                >
-                  Upload {selectedFiles.length} files
-                </button>
-              )}
-
-              {/* Complete Status */}
-              {uploadComplete && (
-                <div className="border-t pt-4 flex items-center gap-2 text-green-600">
-                  <CheckCircle size={20} />
-                  <span className="font-medium">Complete</span>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Drop Zone */}
-              <div
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center mb-8 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all"
-              >
-                <div className="mb-4">
-                  <Upload size={48} className="mx-auto text-gray-400" />
-                </div>
-                <p className="text-lg text-gray-700 mb-2">
-                  Drop files here, <label htmlFor="bulk-file-input" className="text-indigo-600 font-medium hover:underline cursor-pointer">browse files</label> or import from:
-                </p>
-                <input
-                  id="bulk-file-input"
-                  type="file"
-                  multiple
-                  accept="video/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </div>
-
-              {/* Import Options */}
-              <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
-                <button className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Folder size={24} className="text-blue-600" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">My Device</span>
-                </button>
-
-                <button className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg viewBox="0 0 24 24" className="w-6 h-6">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">Google Drive</span>
-                </button>
-
-                <button className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="#0061FF">
-                      <path d="M7.71 3.5L1.13 15l3.28 5.5h6.58l6.58-11-3.28-5.5H7.71z" />
-                      <path d="M22.87 15L16.29 3.5l-3.28 5.5 3.28 5.5 3.29 5.5 3.29-5.5z" fillOpacity="0.7" />
-                      <path d="M1.13 15l3.28 5.5 6.58-11L7.71 3.5 1.13 15z" fillOpacity="0.5" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">Dropbox</span>
-                </button>
-
-                <button className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg viewBox="0 0 24 24" className="w-6 h-6" fill="#0364B8">
-                      <path d="M24 12.053v1.894H12.053V24H10.16V13.947H0V12.053h10.16V0h1.893v12.053H24z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">OneDrive</span>
-                </button>
-
-                <button className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="w-12 h-12 bg-white border border-gray-200 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <svg viewBox="0 0 24 24" className="w-6 h-6">
-                      <path fill="#0061D5" d="M19.5 3h-15C3.67 3 3 3.67 3 4.5v15c0 .83.67 1.5 1.5 1.5h15c.83 0 1.5-.67 1.5-1.5v-15c0-.83-.67-1.5-1.5-1.5z" />
-                      <path fill="white" d="M7.5 16.5h9v-1.5h-9v1.5zm0-3h9V12h-9v1.5zm0-3h9V9h-9v1.5z" />
-                    </svg>
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">Box</span>
-                </button>
-
-                <button className="flex flex-col items-center gap-2 p-4 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <LinkIcon size={24} className="text-orange-600" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700">Link</span>
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const TabCurriculum = ({ courseId, api }) => {
   // ok
   const [sections, setSections] = useState([]);
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState('');
-  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [hasReordered, setHasReordered] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1720,16 +1162,7 @@ const TabCurriculum = ({ courseId, api }) => {
             <h2 className="text-xl font-bold text-gray-900">Curriculum</h2>
             <p className="text-sm text-gray-500">Plan and create your course content.</p>
           </div>
-          <button
-            onClick={() => setShowBulkUpload(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-all"
-          >
-            <Plus size={16} /> Bulk Upload
-          </button>
         </div>
-
-        {/* Bulk Upload Modal */}
-        <BulkUploadModal isOpen={showBulkUpload} onClose={() => setShowBulkUpload(false)} />
 
         {/* Save Order Button */}
         {hasReordered && (
@@ -2034,6 +1467,27 @@ const TabDetails = ({ courseId, api, initialData }) => {
             </select>
           </div>
         </div>
+
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-900 mb-2">Course Enrollment Expiration</label>
+              <p className="text-xs text-gray-600 mb-3">How long students can access the course after purchase (in months)</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={formData.enrollmentExpirationMonths || 12}
+                  onChange={e => setFormData({ ...formData, enrollmentExpirationMonths: Math.max(1, Math.min(120, parseInt(e.target.value) || 12)) })}
+                  className="w-24 p-2 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <span className="text-sm text-gray-600">months</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Example: 12 months = access for 1 year from purchase</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2041,10 +1495,11 @@ const TabDetails = ({ courseId, api, initialData }) => {
 
 const TabPricing = ({ courseId, api, initialData }) => {
   const [pricingTiers, setPricingTiers] = useState([
-    { tier: 'standard', price: 0, discount: 0, features: [], isActive: true },
-    { tier: 'premium', price: 0, discount: 0, features: [], isActive: true }
+    { tier: 'basic', price: 0, discount: 0, features: [], isActive: true },
+    { tier: 'gold', price: 0, discount: 0, features: [], isActive: true },
+    { tier: 'platinum', price: 0, discount: 0, features: [], isActive: true },
   ]);
-  const [newFeature, setNewFeature] = useState({ standard: '', premium: '' });
+  const [newFeature, setNewFeature] = useState({ basic: '', gold: '', platinum: '' });
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -2111,90 +1566,103 @@ const TabPricing = ({ courseId, api, initialData }) => {
         </button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {pricingTiers.map((tier, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-            <h3 className="font-bold text-lg mb-4 capitalize text-indigo-900">{tier.tier} Tier</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Price (₹)</label>
-                <input
-                  type="number"
-                  value={tier.price || ''}
-                  onChange={(e) => updateTier(idx, 'price', Number(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Enter price in rupees"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Discount (%)</label>
-                <input
-                  type="number"
-                  value={tier.discount || ''}
-                  onChange={(e) => updateTier(idx, 'discount', Number(e.target.value) || 0)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Enter discount percentage"
-                  min="0"
-                  max="100"
-                />
-                {tier.price > 0 && (
-                  <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-gray-600">Original Price:</span>
-                      <span className="font-medium text-gray-900">₹{tier.price.toLocaleString('en-IN')}</span>
-                    </div>
-                    {tier.discount > 0 && (
-                      <>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-600">Discount ({tier.discount}%):</span>
-                          <span className="font-medium text-red-600">-₹{((tier.price * tier.discount / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                        </div>
-                        <div className="flex justify-between text-sm pt-2 border-t border-indigo-200">
-                          <span className="font-semibold text-gray-700">Final Price:</span>
-                          <span className="font-bold text-green-600">₹{calculateFinalPrice(tier.price, tier.discount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+      <div className="grid md:grid-cols-3 gap-6">
+        {pricingTiers.map((tier, idx) => {
+          const getTierBorderStyle = (tierName) => {
+            if (tierName === 'basic') return { borderTop: '4px solid #3b82f6' };
+            if (tierName === 'gold') return { borderTop: '4px solid #f59e0b' };
+            if (tierName === 'platinum') return { borderTop: '4px solid #a855f7' };
+            return { borderTop: '4px solid #d1d5db' };
+          };
+          return (
+            <>
 
-              {/* Features Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Features</label>
-                <div className="space-y-2 mb-2">
-                  {tier.features?.map((feature, fIdx) => (
-                    <div key={fIdx} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                      <span className="text-sm text-gray-700">{feature}</span>
-                      <button
-                        onClick={() => removeFeature(idx, fIdx)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
+              <div key={idx} style={getTierBorderStyle(tier.tier)} className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                <h3 className="font-bold text-lg mb-4 capitalize text-indigo-900">{tier.tier} tier</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Price (₹)</label>
                   <input
-                    type="text"
-                    value={newFeature[tier.tier] || ''}
-                    onChange={(e) => setNewFeature({ ...newFeature, [tier.tier]: e.target.value })}
-                    placeholder="Add feature"
-                    className="flex-1 p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                    onKeyDown={(e) => e.key === 'Enter' && addFeature(idx, tier.tier)}
+                    type="number"
+                    value={tier.price || ''}
+                    onChange={(e) => updateTier(idx, 'price', Number(e.target.value) || 0)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Enter price in rupees"
                   />
-                  <button
-                    onClick={() => addFeature(idx, tier.tier)}
-                    className="px-3 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 text-sm font-medium"
-                  >
-                    <Plus size={16} />
-                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Discount (%)</label>
+                  <input
+                    type="number"
+                    value={tier.discount || ''}
+                    onChange={(e) => updateTier(idx, 'discount', Number(e.target.value) || 0)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Enter discount percentage"
+                    min="0"
+                    max="100"
+                  />
+                  {tier.price > 0 && (
+                    <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-600">Original Price:</span>
+                        <span className="font-medium text-gray-900">₹{tier.price.toLocaleString('en-IN')}</span>
+                      </div>
+                      {tier.discount > 0 && (
+                        <>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">Discount ({tier.discount}%):</span>
+                            <span className="font-medium text-red-600">-₹{((tier.price * tier.discount / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between text-sm pt-2 border-t border-indigo-200">
+                            <span className="font-semibold text-gray-700">Final Price:</span>
+                            <span className="font-bold text-green-600">₹{calculateFinalPrice(tier.price, tier.discount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Features Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Features</label>
+                  <div className="space-y-2 mb-2">
+                    {tier.features?.map((feature, fIdx) => (
+                      <div key={fIdx} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
+                        <span className="text-sm text-gray-700">{feature}</span>
+                        <button
+                          onClick={() => removeFeature(idx, fIdx)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="w-full">
+                    <input
+                      type="text"
+                      value={newFeature[tier.tier] || ''}
+                      onChange={(e) => setNewFeature({ ...newFeature, [tier.tier]: e.target.value })}
+                      placeholder="Add feature"
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                      onKeyDown={(e) => e.key === 'Enter' && addFeature(idx, tier.tier)}
+                    />
+                  </div>
+                  <div className="w-full mt-2">
+                    <button
+                      onClick={() => addFeature(idx, tier.tier)}
+                      className="w-full px-3 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <Plus size={16} /> Add Feature
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+            </>
+          );
+        })}
       </div>
     </div>
   );

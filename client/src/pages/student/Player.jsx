@@ -8,12 +8,13 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import Loading from "../../components/student/Loading";
 import {
-  Play, CheckCircle, ChevronDown, ChevronUp, FileText,
+  Play, CheckCircle, ChevronDown, ChevronUp, FileText, BookOpen,
   MessageCircle, X, ChevronLeft,
   Download, Crown, PanelRightClose, PanelRightOpen,
-  Loader2,
+  Eye,
 } from "lucide-react";
-
+import { normalizeTier, tierUi } from "../../utils/tierStyles";
+import PdfViewer from "./PdfViewer"
 const Player = () => {
   const {
     enrolledCourses,
@@ -21,6 +22,7 @@ const Player = () => {
     backendUrl,
     getToken,
     userData,
+    fetchUserEnrolledCourses,
   } = useContext(AppContext);
   const { courseId } = useParams();
 
@@ -28,15 +30,6 @@ const Player = () => {
   const [openSections, setOpenSections] = useState({});
   const [playerData, setPlayerData] = useState(null);
   const [progressData, setProgressData] = useState(null);
-  const [isPremium, setIsPremium] = useState(false);
-  const [downloadingLecture, setDownloadingLecture] = useState(null);
-  const [downloadPicker, setDownloadPicker] = useState({
-    open: false,
-    lecture: null,
-    resolutions: [],
-    selectedResolution: null,
-  });
-  const [creatingDownloadUrl, setCreatingDownloadUrl] = useState(false);
 
   // UI States
   const [activeTab, setActiveTab] = useState("overview");
@@ -45,11 +38,20 @@ const Player = () => {
   // Feedback Modal States
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [feedbackInitial, setFeedbackInitial] = useState({ rating: 0, comment: "" });
 
   // Video Playback States
   const [videoUrl, setVideoUrl] = useState(null);
   const [loadingVideo, setLoadingVideo] = useState(false);
   const latestVideoRequestIdRef = useRef(0);
+  const notesRef = useRef(null);
+
+  // PDF View States
+  const [pdfState, setPdfState] = useState({
+    loading: false,
+    url: null,
+    title: "",
+  });
 
   // Notes States
   const [notes, setNotes] = useState([]);
@@ -58,13 +60,17 @@ const Player = () => {
   const getCourseData = () => {
     const matchedCourse = enrolledCourses.find((course) => course._id === courseId);
     if (!matchedCourse) return;
-
     setCourseData(matchedCourse);
-    setIsPremium(Boolean(userData?.premiumCourses?.includes(courseId)));
   };
   useEffect(() => {
     if (enrolledCourses.length > 0) getCourseData();
   }, [enrolledCourses]);
+
+  const tierUpper = userData?.tierByCourse?.[courseId]
+    ? normalizeTier(userData.tierByCourse[courseId])
+    : "GOLD";
+  const canWatchVideo = tierUpper === "GOLD" || tierUpper === "PLATINUM";
+  const isPlatinum = tierUpper === "PLATINUM";
 
   const getCourseProgress = async () => {
     try {
@@ -94,6 +100,10 @@ const Player = () => {
       toast.error("No lecture selected");
       return;
     }
+    if (!canWatchVideo) {
+      toast.error("Mark complete is available on Gold and Platinum plans");
+      return;
+    }
 
     if (completedLectureIds.has(String(lectureId))) {
       toast.info("Lecture already marked as completed");
@@ -115,74 +125,6 @@ const Player = () => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.response?.data?.error || "Failed to update progress");
-    }
-  };
-
-  const handleDownload = async (lecture) => {
-    if (!isPremium) {
-      toast.warn("Upgrade to Premium to download lectures");
-      return;
-    }
-    try {
-      setDownloadingLecture(lecture.lectureId);
-      const token = await getToken();
-      const { data } = await axios.get(
-        `${backendUrl}/api/video/${lecture.lectureId}/download-options`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!data.success) {
-        toast.error(data.error || "Failed to fetch download resolutions");
-        return;
-      }
-
-      const resolutions = Array.isArray(data.resolutions) ? data.resolutions : [];
-      if (!resolutions.length) {
-        toast.error("No downloadable resolution is available for this lecture yet");
-        return;
-      }
-
-      setDownloadPicker({
-        open: true,
-        lecture,
-        resolutions,
-        selectedResolution: data.recommendedResolution || resolutions[resolutions.length - 1],
-      });
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Failed to fetch download resolutions");
-    } finally {
-      setDownloadingLecture(null);
-    }
-  };
-
-  const handleConfirmDownload = async () => {
-    if (!downloadPicker.lecture || !downloadPicker.selectedResolution) return;
-
-    try {
-      setCreatingDownloadUrl(true);
-
-      const token = await getToken();
-      const { data } = await axios.post(
-        `${backendUrl}/api/video/${downloadPicker.lecture.lectureId}/download-url`,
-        { resolutionHeight: downloadPicker.selectedResolution },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (!data.success || !data.downloadUrl) {
-        toast.error("Failed to generate download link");
-        return;
-      }
-
-      // Just open the URL — Bunny edge rule handles Content-Disposition
-      window.open(data.downloadUrl, "_blank");
-
-      toast.success(`Download started at ${downloadPicker.selectedResolution}p`);
-      setDownloadPicker({ open: false, lecture: null, resolutions: [], selectedResolution: null });
-
-    } catch (error) {
-      toast.error(error.response?.data?.error || "Download failed");
-    } finally {
-      setCreatingDownloadUrl(false);
     }
   };
 
@@ -217,6 +159,12 @@ const Player = () => {
     const requestId = Date.now();
     latestVideoRequestIdRef.current = requestId;
 
+    if (!canWatchVideo) {
+      setVideoUrl(null);
+      setLoadingVideo(false);
+      return;
+    }
+
     try {
       setLoadingVideo(true);
       const token = await getToken();
@@ -246,11 +194,44 @@ const Player = () => {
         `${backendUrl}/api/notes/lecture/${lectureId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (data.success) setNotes(data.notes);
+      if (data.success) {
+        const lectureNotes = Array.isArray(data.notes) ? data.notes : [];
+        setNotes(lectureNotes);
+        return lectureNotes;
+      }
     } catch (error) {
       console.error("Error fetching notes:", error);
     } finally {
       setLoadingNotes(false);
+    }
+
+    setNotes([]);
+    return [];
+  };
+
+  const handleViewNote = async (note, silent = false) => {
+    if (!note?._id) {
+      if (!silent) toast.error("Invalid note selected");
+      return;
+    }
+
+    try {
+      setPdfState({ loading: true, url: null, title: note.name || "Course Note" });
+      const token = await getToken();
+      const response = await axios.get(`${backendUrl}/api/notes/${note._id}/file-url`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const fileUrl = response?.data?.fileUrl;
+      if (!fileUrl) throw new Error("No file URL returned");
+
+      setPdfState({ loading: false, url: fileUrl, title: note.name || "Course Note" });
+      setActiveTab("notes");
+    } catch (error) {
+      setPdfState({ loading: false, url: null, title: "" });
+      if (!silent) {
+        toast.error(error.response?.data?.error || "Failed to open note");
+      }
     }
   };
 
@@ -259,10 +240,14 @@ const Player = () => {
       toast.error("Invalid note selected");
       return;
     }
+    if (!isPlatinum) {
+      toast.error("Platinum plan required to download course materials");
+      return;
+    }
 
     try {
       const token = await getToken();
-      const response = await axios.get(`${backendUrl}/api/notes/${note._id}/file-url`, {
+      const response = await axios.get(`${backendUrl}/api/notes/${note._id}/file-url?download=1`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -278,12 +263,26 @@ const Player = () => {
     }
   };
   useEffect(() => {
-    if (playerData?.lectureId) {
+    const loadLectureContent = async () => {
+      if (!playerData?.lectureId) return;
+
       setVideoUrl(null);
-      fetchVideoUrl(playerData.lectureId);
-      fetchNotes(playerData.lectureId);
-    }
-  }, [playerData?.lectureId]);
+      setPdfState({ loading: false, url: null, title: "" });
+
+      if (canWatchVideo) {
+        fetchVideoUrl(playerData.lectureId);
+      }
+
+      const lectureNotes = await fetchNotes(playerData.lectureId);
+
+      // Basic plan: open first available note directly in player area.
+      if (!canWatchVideo && lectureNotes.length > 0) {
+        await handleViewNote(lectureNotes[0], true);
+      }
+    };
+
+    loadLectureContent();
+  }, [playerData?.lectureId, canWatchVideo, courseId, userData?.tierByCourse?.[courseId]]);
 
   useEffect(() => {
     return () => {
@@ -303,6 +302,10 @@ const Player = () => {
       if (data.success) {
         toast.success("Feedback submitted successfully!");
         setShowFeedbackModal(false);
+        // refresh enrolled courses and feedback list
+        try { await fetchUserEnrolledCourses(); } catch (e) {}
+        try { await getCourseProgress(); } catch (e) {}
+        try { const { data: fdata } = await axios.get(`${backendUrl}/api/course/${courseId}/feedback`); if (fdata.success) setCourseFeedback(fdata.feedback || []); } catch (e) {}
       } else {
         toast.error(data.message || "Failed to submit feedback");
       }
@@ -353,20 +356,24 @@ const Player = () => {
           <span className="text-sm font-medium text-gray-100 truncate max-w-xs md:max-w-lg">
             {courseData.title}
           </span>
-          {isPremium && (
-            <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 Z text-white text-xs font-bold rounded-full flex-shrink-0 border border-white">
-              <Crown size={11} /> Premium Access
-            </span>
-          )}
+          <span
+            className={`hidden md:inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full flex-shrink-0 border ${tierUi(tierUpper).pill}`}
+          >
+            <Crown size={11} /> {tierUi(tierUpper).label}
+          </span>
         </div>
         <div className="flex items-center gap-1 md:gap-3 text-sm flex-shrink-0">
           <div className="flex-shrink-0 border-gray-200">
             <button
-              onClick={() => setShowFeedbackModal(true)}
+              onClick={() => {
+                const userFeedback = courseData?.feedback || null;
+                setFeedbackInitial({ rating: userFeedback?.rating || 0, comment: userFeedback?.comment || "" });
+                setShowFeedbackModal(true);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#2d2f31] hover:bg-[#3e4143] transition-colors text-xs text-gray-300 hover:text-white"
             >
               <MessageCircle size={16} />
-              Give Feedback
+              {courseData?.feedback ? "Edit Feedback" : "Give Feedback"}
             </button>
           </div>
           <div className="hidden sm:flex items-center gap-3">
@@ -418,38 +425,107 @@ const Player = () => {
         {/*── LEFT COLUMN ──*/}
         <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
 
-          {/* VIDEO */}
-          <div
-            className="bg-black w-full transition-[height] duration-300"
-            style={{
-              height: isSidebarOpen
-                ? `calc((100vw - ${isSidebarOpen ? "384px" : "0px"}) * 9 / 16)`
-                : "calc(100vh - 56px)",
-            }}
-          >
-            {loadingVideo ? (
-              <div className="w-full h-full flex flex-col items-center justify-center">
-                <div className="w-10 h-10 border-2 border-white border-t-transparent rounded-full animate-spin mb-3" />
-                <p className="text-sm text-gray-400">Loading video...</p>
-              </div>
-            ) : videoUrl ? (
-              <iframe
-                key={videoUrl}
-                src={videoUrl}
-                className="w-full h-full block"
-                style={{ border: "none" }}
-                allow="accelerometer; gyroscope; encrypted-media; picture-in-picture"
-                allowFullScreen
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <Play size={48} className="mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">No video available</p>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* VIDEO / PDF */}
+{/* VIDEO / PDF */}
+<div
+  className="bg-black w-full transition-[height] duration-300"
+  style={{
+    height: isSidebarOpen
+      ? `calc((100vw - 384px) * 9 / 16)`
+      : "calc(100vh - 56px)",
+    overflow: "hidden",
+    position: "relative",  // ← add this so the overlay button positions correctly
+  }}
+>
+  {/* Switch to video button — shown only when PDF is open AND video is available */}
+  {pdfState.url && videoUrl && (
+    <button
+      onClick={() => setPdfState({ loading: false, url: null, title: "" })}
+      style={{
+        position: "absolute",
+        top: "12px",
+        right: "12px",
+        zIndex: 30,
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "6px 12px",
+        borderRadius: "8px",
+        backgroundColor: "rgba(0,0,0,0.7)",
+        border: "1px solid rgba(255,255,255,0.2)",
+        color: "#fff",
+        fontSize: "12px",
+        fontWeight: 600,
+        cursor: "pointer",
+        backdropFilter: "blur(6px)",
+        transition: "background 0.2s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(164,53,240,0.8)")}
+      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.7)")}
+    >
+      <Play size={13} />
+      Switch to video
+    </button>
+  )}
+
+  {pdfState.loading ? (
+    <div className="w-full h-full flex flex-col items-center justify-center">
+      <div className="w-10 h-10 border-2 border-white border-t-transparent rounded-full animate-spin mb-3" />
+      <p className="text-sm text-gray-400">Loading PDF...</p>
+    </div>
+  ) : pdfState.url ? (
+    <PdfViewer url={pdfState.url} />
+  ) : !canWatchVideo ? (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 px-6 text-center">
+      <BookOpen size={40} className="text-slate-400 mb-3" />
+      <p className="text-white font-semibold mb-1">Basic plan — notes only</p>
+      <p className="text-slate-400 text-sm mb-4 max-w-md">
+        Open a note from the Notes tab to read it here. Upgrade to Gold or Platinum to watch videos.
+      </p>
+      <div className="flex items-center gap-3 flex-wrap justify-center">
+        <Link
+          to={`/course/${courseId}`}
+          className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors"
+        >
+          View upgrade options
+        </Link>
+        <button
+          onClick={() => {
+            setActiveTab("notes");
+            setTimeout(() => {
+              notesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 50);
+          }}
+          className="px-4 py-2 rounded-lg bg-[#a435f0] text-white text-sm font-bold hover:bg-[#8710d8] transition-colors flex items-center gap-2"
+        >
+          <FileText size={15} />
+          View Notes
+        </button>
+      </div>
+    </div>
+  ) : loadingVideo ? (
+    <div className="w-full h-full flex flex-col items-center justify-center">
+      <div className="w-10 h-10 border-2 border-white border-t-transparent rounded-full animate-spin mb-3" />
+      <p className="text-sm text-gray-400">Loading video...</p>
+    </div>
+  ) : videoUrl ? (
+    <iframe
+      key={videoUrl}
+      src={videoUrl}
+      className="w-full h-full block"
+      style={{ border: "none" }}
+      allow="accelerometer; gyroscope; encrypted-media; picture-in-picture"
+      allowFullScreen
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center text-gray-500">
+      <div className="text-center">
+        <Play size={48} className="mx-auto mb-2 opacity-30" />
+        <p className="text-sm">No video available</p>
+      </div>
+    </div>
+  )}
+</div>
 
           {/* TABS + CONTENT (flows naturally below video) */}
           <div className="bg-white text-gray-900">
@@ -472,7 +548,7 @@ const Player = () => {
             </div>
 
             {/* Tab Content */}
-            <div className="p-6 md:p-8 max-w-4xl">
+            <div className="p-6 md:p-8 max-w-4xl" ref={notesRef}>
               {activeTab === "overview" && (
                 <div className="space-y-5">
                   <h1 className="text-xl font-bold text-gray-900">
@@ -496,14 +572,6 @@ const Player = () => {
                       <CheckCircle size={16} />
                       {completedLectureIds.has(String(playerData?.lectureId)) ? "Completed" : "Mark as complete"}
                     </button>
-                    {isPremium && (
-                      <button
-                        onClick={() => handleDownload(playerData)}
-                        className="px-4 py-2 border border-[#a435f0] text-[#a435f0] rounded text-sm font-medium hover:bg-[#a435f0] hover:text-white transition-colors flex items-center gap-2"
-                      >
-                        <Download size={16} /> Download lecture
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -531,12 +599,22 @@ const Player = () => {
                             </button>
                             <button
                               type="button"
+                              onClick={() => handleViewNote(note)}
+                              className="text-gray-400 hover:text-[#a435f0] transition-colors"
+                              title="View note"
+                            >
+                              <Eye size={20} />
+                            </button>
+                            {isPlatinum && (
+                              <button
+                                type="button"
                               onClick={() => handleDownloadNote(note)}
                               className="text-gray-400 hover:text-[#a435f0] transition-colors"
                               title="Download note"
                             >
                               <Download size={20} />
                             </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -584,7 +662,6 @@ const Player = () => {
                   {chapter.chapterContent.map((lecture, i) => {
                     const isCompleted = completedLectureIds.has(String(lecture.lectureId));
                     const isActive = playerData?.lectureId === lecture.lectureId;
-                    const isDownloading = downloadingLecture === lecture.lectureId;
 
                     return (
                       <div
@@ -599,7 +676,7 @@ const Player = () => {
                             e.stopPropagation();
                             markLectureAsCompleted(lecture.lectureId);
                           }}
-                          disabled={isCompleted}
+                          disabled={isCompleted || !canWatchVideo}
                           className="flex items-center justify-center w-5 h-5"
                         >
                           <div
@@ -637,15 +714,10 @@ const Player = () => {
                             e.stopPropagation();
                             selectLecture(lecture, index, i);
                           }}
-                          disabled={isDownloading}
-                          className="flex-shrink-0 p-2 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title={isDownloading ? "Downloading..." : "Play lecture"}
+                          className="flex-shrink-0 p-2 hover:bg-gray-100 rounded transition-colors"
+                          title="Play lecture"
                         >
-                          {isDownloading ? (
-                            <Loader2 size={16} className="animate-spin text-gray-400" />
-                          ) : (
-                            <Play size={16} className="text-[#a435f0]" />
-                          )}
+                          <Play size={16} className="text-[#a435f0]" />
                         </button>
                       </div>
                     );
@@ -660,58 +732,14 @@ const Player = () => {
       </div>
       {/* end body row */}
 
-      {downloadPicker.open && (
-        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-gray-900">Choose download quality</h3>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{downloadPicker.lecture?.lectureTitle}</p>
-              </div>
-              <button
-                onClick={() => setDownloadPicker({ open: false, lecture: null, resolutions: [], selectedResolution: null })}
-                className="p-1 rounded hover:bg-gray-100 text-gray-500"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-2">
-              {downloadPicker.resolutions.map((resolution) => (
-                <button
-                  key={resolution}
-                  onClick={() => setDownloadPicker((prev) => ({ ...prev, selectedResolution: resolution }))}
-                  className={`w-full px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${downloadPicker.selectedResolution === resolution ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 text-gray-700 hover:bg-gray-50"}`}
-                >
-                  {resolution}p
-                </button>
-              ))}
-            </div>
-
-            <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setDownloadPicker({ open: false, lecture: null, resolutions: [], selectedResolution: null })}
-                className="px-3 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDownload}
-                disabled={!downloadPicker.selectedResolution || creatingDownloadUrl}
-                className="px-3 py-2 text-sm rounded bg-gray-900 text-white hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creatingDownloadUrl ? "Preparing..." : "Download"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <FeedbackModal
         isOpen={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
         onSubmit={handleFeedbackSubmit}
         isLoading={isSubmittingFeedback}
+        initialRating={feedbackInitial.rating}
+        initialComment={feedbackInitial.comment}
+        isEdit={Boolean(courseData?.feedback)}
       />
 
     </div>

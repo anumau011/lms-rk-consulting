@@ -27,21 +27,17 @@ const Dashboard = () => {
         const enrolledStudentsData = [];
 
         data.courses.forEach((course) => {
-          const enrollments = course.enrollmentsByTier || {
-            standard: 0,
-            premium: 0,
-          };
-          const standardCount = enrollments.standard || 0;
-          const premiumCount = enrollments.premium || 0;
+          const e = course.enrollmentsByTier || {};
+          const basicCount = e.basic || 0;
+          const goldCount = (e.gold || 0) + (e.standard || 0);
+          const platinumCount = (e.platinum || 0) + (e.premium || 0);
 
-          totalEnrollments += standardCount + premiumCount;
+          totalEnrollments += basicCount + goldCount + platinumCount;
 
-          const standardTier = course.pricingTiers?.find(
-            (t) => t.tier === "standard"
-          );
-          const premiumTier = course.pricingTiers?.find(
-            (t) => t.tier === "premium"
-          );
+          const tiers = course.pricingTiers || [];
+          const basicTier = tiers.find((t) => t.tier === "basic");
+          const goldTier = tiers.find((t) => t.tier === "gold" || t.tier === "standard");
+          const platinumTier = tiers.find((t) => t.tier === "platinum" || t.tier === "premium");
 
           const calculateFinalPrice = (price, discount) => {
             if (!price) return 0;
@@ -49,17 +45,12 @@ const Dashboard = () => {
             return price - (price * discount) / 100;
           };
 
-          const standardPrice = calculateFinalPrice(
-            standardTier?.price || 0,
-            standardTier?.discount || 0
-          );
-          const premiumPrice = calculateFinalPrice(
-            premiumTier?.price || 0,
-            premiumTier?.discount || 0
-          );
+          const basicPrice = calculateFinalPrice(basicTier?.price || 0, basicTier?.discount || 0);
+          const goldPrice = calculateFinalPrice(goldTier?.price || 0, goldTier?.discount || 0);
+          const platinumPrice = calculateFinalPrice(platinumTier?.price || 0, platinumTier?.discount || 0);
 
           totalEarnings +=
-            standardCount * standardPrice + premiumCount * premiumPrice;
+            basicCount * basicPrice + goldCount * goldPrice + platinumCount * platinumPrice;
         });
 
         setDashboardData({

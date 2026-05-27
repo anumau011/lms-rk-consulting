@@ -2,16 +2,12 @@ const crypto = require('crypto');
 const Course = require('../models/Course');
 const Lecture = require('../models/Lecture');
 const Enrollment = require('../models/Enrollment');
-const {
-  getVideo,
-  extractAvailableResolutions,
-  generateSignedMp4DownloadUrl,
-} = require('../services/bunny');
+const { normalizeEnrollmentTier, canViewVideo, isEnrollmentExpired } = require('../utils/tierAccess');
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Check if user has access to this lecture's course (owner, enrolled, or free preview). */
-async function assertVideoAccess(req, lecture) {
+/** Enrolled, owner, admin, or free preview — no tier check (e.g. thumbnails). */
+async function assertEnrolledOrPreview(req, lecture) {
   const userId = req.user._id;
 
   const isOwner = await Course.exists({ _id: lecture.courseId, instructorId: String(userId) });
@@ -31,6 +27,52 @@ async function assertVideoAccess(req, lecture) {
     err.statusCode = 403;
     throw err;
   }
+
+  // Check if enrollment is expired
+  if (isEnrollmentExpired(enrollment)) {
+    const err = new Error('Your enrollment has expired. Please renew to access this course.');
+    err.statusCode = 403;
+    throw err;
+  }
+}
+
+/** Requires GOLD or PLATINUM (or legacy STANDARD/PREMIUM mapped) for full lecture video. */
+async function assertVideoPlaybackAccess(req, lecture) {
+  const userId = req.user._id;
+
+  const isOwner = await Course.exists({ _id: lecture.courseId, instructorId: String(userId) });
+  if (isOwner) return;
+
+  if (lecture.isFreePreview) return;
+  if (req.user.role === 'admin') return;
+
+  const enrollment = await Enrollment.findOne({
+    userId,
+    courseId: lecture.courseId,
+    'purchase.status': 'CAPTURED',
+  });
+
+  if (!enrollment) {
+    const err = new Error('You are not enrolled in this course');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // Check if enrollment is expired
+  if (isEnrollmentExpired(enrollment)) {
+    const err = new Error('Your enrollment has expired. Please renew to access this course.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const tier = normalizeEnrollmentTier(enrollment.tier);
+  if (!canViewVideo(tier)) {
+    const err = new Error(
+      'Your Basic plan includes notes only. Upgrade to Gold or Platinum to watch videos.'
+    );
+    err.statusCode = 403;
+    throw err;
+  }
 }
 
 // ── Controllers ─────────────────────────────────────────────────────────────
@@ -41,7 +83,7 @@ const getSignedThumbnailUrl = async (req, res) => {
   if (!lecture) return res.status(404).json({ success: false, error: 'Lecture not found' });
   if (!lecture.videoId?.videoGuid) return res.status(404).json({ success: false, error: 'Video not available' });
 
-  await assertVideoAccess(req, lecture);
+  await assertEnrolledOrPreview(req, lecture);
 
   const securityKey = process.env.BUNNY_STREAM_SECRET_KEY;
   const path = `/${lecture.videoId.videoGuid}/${lecture.videoId.thumbnailFileName || 'thumbnail.jpg'}`;
@@ -61,7 +103,7 @@ const getSignedVideoUrl = async (req, res) => {
   if (!lecture) return res.status(404).json({ error: 'Lecture not found' });
   if (!lecture.videoId?.videoGuid) return res.status(404).json({ error: 'Video not available' });
 
-  await assertVideoAccess(req, lecture);
+  await assertVideoPlaybackAccess(req, lecture);
 
   const securityKey = process.env.BUNNY_STREAM_SECRET_KEY;
   const videoId = lecture.videoId.videoGuid;
@@ -72,71 +114,7 @@ const getSignedVideoUrl = async (req, res) => {
   res.json({ success: true, playbackUrl: url });
 };
 
-/** GET /video/:lectureId/download-options — Premium-only. */
-const getDownloadOptions = async (req, res) => {
-  const lecture = await Lecture.findById(req.params.lectureId).populate('videoId');
-  if (!lecture) return res.status(404).json({ success: false, error: 'Lecture not found' });
-  if (!lecture.videoId?.videoGuid) return res.status(404).json({ success: false, error: 'Video not available' });
-
-  const enrollment = await Enrollment.findOne({
-    userId: req.user._id,
-    courseId: lecture.courseId,
-    'purchase.status': 'CAPTURED',
-  }).lean();
-
-  if (!enrollment) return res.status(403).json({ success: false, error: 'You are not enrolled in this course' });
-  if (enrollment.tier !== 'PREMIUM') return res.status(403).json({ success: false, error: 'Premium plan required to download videos' });
-
-  const bunnyVideo = await getVideo(lecture.videoId.videoGuid);
-  const resolutions = extractAvailableResolutions(bunnyVideo);
-
-  if (!resolutions.length) {
-    return res.status(400).json({ success: false, error: 'No downloadable resolutions available yet' });
-  }
-
-  res.json({
-    success: true,
-    lectureId: lecture._id,
-    videoGuid: lecture.videoId.videoGuid,
-    resolutions,
-    recommendedResolution: resolutions[resolutions.length - 1],
-  });
-};
-
-/** POST /video/:lectureId/download-url — Premium-only signed download URL. */
-const getDownloadUrl = async (req, res) => {
-  const requestedResolution = Number(req.body?.resolutionHeight);
-  if (!Number.isFinite(requestedResolution)) {
-    return res.status(400).json({ success: false, error: 'resolutionHeight is required' });
-  }
-
-  const lecture = await Lecture.findById(req.params.lectureId).populate('videoId');
-  if (!lecture) return res.status(404).json({ success: false, error: 'Lecture not found' });
-  if (!lecture.videoId?.videoGuid) return res.status(404).json({ success: false, error: 'Video not available' });
-
-  const enrollment = await Enrollment.findOne({
-    userId: req.user._id,
-    courseId: lecture.courseId,
-    'purchase.status': 'CAPTURED',
-  }).lean();
-
-  if (!enrollment) return res.status(403).json({ success: false, error: 'You are not enrolled in this course' });
-  if (enrollment.tier !== 'PREMIUM') return res.status(403).json({ success: false, error: 'Premium plan required to download videos' });
-
-  const bunnyVideo = await getVideo(lecture.videoId.videoGuid);
-  const resolutions = extractAvailableResolutions(bunnyVideo);
-
-  if (!resolutions.includes(requestedResolution)) {
-    return res.status(400).json({ success: false, error: 'Requested resolution is not available', availableResolutions: resolutions });
-  }
-
-  const downloadUrl = generateSignedMp4DownloadUrl(lecture.videoId.videoGuid, requestedResolution, 3600);
-  res.json({ success: true, lectureId: lecture._id, resolution: requestedResolution, downloadUrl, expiresIn: 3600 });
-};
-
 module.exports = {
   getSignedThumbnailUrl,
   getSignedVideoUrl,
-  getDownloadOptions,
-  getDownloadUrl,
 };

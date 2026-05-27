@@ -1,6 +1,7 @@
 const Lecture = require('../models/Lecture');
 const Section = require('../models/Section');
 const Note = require('../models/Note');
+const { cleanupLectureAssets } = require('../utils/lectureCleanup');
 
 /** POST /:courseId/sections/:sectionId/lectures — Create a new lecture. */
 const createLecture = async (req, res) => {
@@ -116,7 +117,8 @@ const deleteLecture = async (req, res) => {
 
   if (!lecture) return res.status(404).json({ error: 'Lecture not found' });
 
-  await Lecture.findByIdAndDelete(req.params.lectureId);
+  await cleanupLectureAssets(lecture);
+  await Lecture.deleteOne({ _id: lecture._id });
   res.json({ success: true, message: 'Lecture deleted successfully' });
 };
 

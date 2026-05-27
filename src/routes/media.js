@@ -22,7 +22,6 @@ router.delete('/delete-thumbnail/:publicId', ...educator, asyncHandler(mediaCtrl
 
 router.post('/bunny/sign', ...educator, asyncHandler(mediaCtrl.signBunnyUpload));
 router.post('/bunny-video', ...educator, asyncHandler(mediaCtrl.createBunnyVideo));
-router.get('/bunny/library/:courseId', ...educator, asyncHandler(mediaCtrl.getVideoLibrary));
 
 // ── Playback URLs ───────────────────────────────────────────────────────────
 

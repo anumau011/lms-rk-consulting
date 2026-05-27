@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const errorHandler = require('./src/middleware/errorHandler');
 const logger = require('./src/utils/logger');
@@ -18,6 +19,11 @@ const testimonialRoutes = require('./src/routes/testimonials');
 const clerkMiddleware = require('@clerk/clerk-sdk-node');
 
 // Initialize
+// debugging
+// Step Into: Moves execution inside the function being called
+// Step Over: Executes current line without entering functions.
+// Step Out: You entered a function accidentally
+
 const app = express();
 
 app.use(clerkMiddleware.ClerkExpressWithAuth());
@@ -65,7 +71,42 @@ app.use(errorHandler);
 
 // ── Start Server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info('SERVER', `Running on port ${PORT}`);
 });
+
+// ── Graceful Shutdown ───────────────────────────────────────────────────────
+const gracefulShutdown = async () => {
+  logger.info('SERVER', 'Shutting down gracefully...');
+  
+  // Stop cron job
+  if (job && job.stop) {
+    job.stop();
+    logger.info('SERVER', 'Cron job stopped');
+  }
+  
+  // Close HTTP server
+  server.close(async () => {
+    logger.info('SERVER', 'HTTP server closed');
+    
+    try {
+      // Close MongoDB connection
+      await mongoose.connection.close();
+      logger.info('SERVER', 'MongoDB connection closed');
+    } catch (err) {
+      logger.error('SERVER', 'Error closing MongoDB:', err.message);
+    }
+    
+    process.exit(0);
+  });
+  
+  // Force shutdown after 30 seconds
+  setTimeout(() => {
+    logger.error('SERVER', 'Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 

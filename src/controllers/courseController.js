@@ -3,6 +3,7 @@ const Section = require('../models/Section');
 const Lecture = require('../models/Lecture');
 const Enrollment = require('../models/Enrollment');
 const logger = require('../utils/logger');
+const { normalizeEnrollmentTier, enrollmentsByTierKey } = require('../utils/tierAccess');
 
 const TAG = 'COURSE_CTRL';
 
@@ -56,15 +57,26 @@ const getInstructorCourses = async (req, res) => {
   const enrollmentMap = {};
   enrollmentStats.forEach((stat) => {
     const id = stat._id.courseId.toString();
-    const tierKey = (stat._id.tier || 'standard').toLowerCase();
-    if (!enrollmentMap[id]) enrollmentMap[id] = { standard: 0, premium: 0, total: 0 };
-    enrollmentMap[id][tierKey] = stat.count;
+    const tierKey = enrollmentsByTierKey(stat._id.tier || 'GOLD');
+    if (!enrollmentMap[id]) {
+      enrollmentMap[id] = { basic: 0, gold: 0, platinum: 0, standard: 0, premium: 0, total: 0 };
+    }
+    if (enrollmentMap[id][tierKey] === undefined) enrollmentMap[id][tierKey] = 0;
+    enrollmentMap[id][tierKey] += stat.count;
     enrollmentMap[id].total += stat.count;
   });
 
   const coursesWithStats = courses.map((course) => ({
     ...course,
-    enrollmentsByTier: enrollmentMap[course._id.toString()] || { standard: 0, premium: 0, total: 0 },
+    enrollmentsByTier:
+      enrollmentMap[course._id.toString()] || {
+        basic: 0,
+        gold: 0,
+        platinum: 0,
+        standard: 0,
+        premium: 0,
+        total: 0,
+      },
   }));
 
   const actualEnrollments = await Enrollment.find({
@@ -80,7 +92,12 @@ const getInstructorCourses = async (req, res) => {
     _id: e._id,
     courseTitle: e.courseId?.title,
     courseThumbnail: e.courseId?.thumbnail,
-    plan: e.tier === 'PREMIUM' ? 'Premium' : 'Standard',
+    plan: (() => {
+      const t = normalizeEnrollmentTier(e.tier);
+      if (t === 'PLATINUM') return 'Platinum';
+      if (t === 'GOLD') return 'Gold';
+      return 'Basic';
+    })(),
     purchaseDate: e.purchase?.capturedAt || e.createdAt,
     student: {
       _id: e.userId?._id,
@@ -118,7 +135,7 @@ const updateBasicInfo = async (req, res) => {
 
 /** PATCH /:courseId/details — Update course details (Step 3). */
 const updateDetails = async (req, res) => {
-  const { title, subtitle, description, category, level, language, thumbnail, tags, requirements, whatYoullLearn } = req.body;
+  const { title, subtitle, description, category, level, language, thumbnail, tags, requirements, whatYoullLearn, enrollmentExpirationMonths } = req.body;
 
   if (title) req.course.title = title.trim();
   if (subtitle !== undefined) req.course.subtitle = subtitle?.trim();
@@ -130,6 +147,15 @@ const updateDetails = async (req, res) => {
   if (tags) req.course.tags = tags;
   if (requirements) req.course.requirements = requirements;
   if (whatYoullLearn) req.course.whatYoullLearn = whatYoullLearn;
+  
+  // Handle enrollment expiration months
+  if (enrollmentExpirationMonths !== undefined) {
+    const months = parseInt(enrollmentExpirationMonths, 10);
+    if (isNaN(months) || months < 1 || months > 120) {
+      return res.status(400).json({ error: 'Enrollment expiration must be between 1 and 120 months' });
+    }
+    req.course.enrollmentExpirationMonths = months;
+  }
 
   req.course.completedSteps.step3 = true;
   await req.course.save();
@@ -144,10 +170,12 @@ const updatePricing = async (req, res) => {
     return res.status(400).json({ error: 'Pricing tiers must be an array' });
   }
 
-  const validTiers = ['standard', 'premium'];
+  const validTiers = ['basic', 'gold', 'platinum'];
   for (const tier of pricingTiers) {
     if (!validTiers.includes(tier.tier)) {
-      return res.status(400).json({ error: `Invalid tier: ${tier.tier}. Must be 'standard' or 'premium'` });
+      return res.status(400).json({
+        error: `Invalid tier: ${tier.tier}. Must be basic, gold, or platinum`,
+      });
     }
     if (typeof tier.price !== 'number' || tier.price < 0) {
       return res.status(400).json({ error: 'Price must be a positive number' });

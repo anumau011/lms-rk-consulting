@@ -16,7 +16,7 @@ const VALID_GENDER = ['male', 'female', 'other', 'prefer_not_to_say'];
 
 /** POST /user/complete-profile — Save extra registration fields after Clerk sign-up. */
 const completeProfile = async (req, res) => {
-  const { phone, dateOfBirth, education, gender } = req.body;
+  const { phone, dateOfBirth, education, gender, country, profession } = req.body;
 
   const user = await User.findById(req.user._id);
   if (!user) {
@@ -45,6 +45,8 @@ const completeProfile = async (req, res) => {
   if (phone !== undefined) user.phone = phone.trim();
   if (education) user.education = education;
   if (gender) user.gender = gender;
+  if (country !== undefined) user.country = country.trim();
+  if (profession !== undefined) user.profession = profession.trim();
   user.profileCompleted = true;
 
   await user.save();

@@ -6,7 +6,8 @@ const Lecture = require('../models/Lecture');
 const Video = require('../models/Video');
 const Enrollment = require('../models/Enrollment');
 const logger = require('../utils/logger');
-const { getVideo, mapBunnyStatus,generateSignedThumbnailUrl } = require('../services/bunny');
+const { getVideo, mapBunnyStatus, generateSignedThumbnailUrl } = require('../services/bunny');
+const { normalizeEnrollmentTier, canViewVideo } = require('../utils/tierAccess');
 
 const TAG = 'MEDIA_CTRL';
 
@@ -254,6 +255,14 @@ const getPlaybackUrl = async (req, res) => {
     if (enrollment.expiresAt && new Date() > enrollment.expiresAt) {
       return res.status(403).json({ success: false, error: 'Your enrollment has expired' });
     }
+    const tier = normalizeEnrollmentTier(enrollment.tier);
+    if (!canViewVideo(tier)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your Basic plan includes notes only. Upgrade to Gold or Platinum to watch videos.',
+        code: 'TIER_VIDEO_BLOCKED',
+      });
+    }
   }
 
   if (!lecture.videoId) return res.status(400).json({ success: false, error: 'No video associated with this lecture' });
@@ -300,16 +309,6 @@ const getEducatorVideoPreview = async (req, res) => {
   res.json({ success: true, iframeUrl, thumbnailUrl, videoGuid: video.videoGuid, status: video.status });
 };
 
-/** GET /bunny/library/:courseId — List all videos for a course. */
-const getVideoLibrary = async (req, res) => {
-  if (!process.env.BUNNY_STREAM_API_KEY || !process.env.BUNNY_STREAM_LIBRARY_ID) {
-    return res.status(500).json({ success: false, error: 'Bunny CDN configuration missing' });
-  }
-
-  const videoList = await Video.find({ courseId: req.params.courseId }).sort({ createdAt: -1 });
-  res.json({ success: true, videos: videoList });
-};
-
 module.exports = {
   getCloudinarySignature,
   uploadThumbnail,
@@ -319,5 +318,4 @@ module.exports = {
   getPreviewPlaybackUrl,
   getPlaybackUrl,
   getEducatorVideoPreview,
-  getVideoLibrary,
 };

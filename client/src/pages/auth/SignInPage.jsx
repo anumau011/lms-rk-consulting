@@ -1,12 +1,20 @@
-import React, { useState } from "react";
-import { useSignIn } from "@clerk/clerk-react";
+import React, { useState, useEffect } from "react";
+import { useSignIn, useUser } from "@clerk/clerk-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { assets } from "../../assets/assets";
 
 const SignInPage = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
+  const { user, isLoaded: userLoaded } = useUser();
   const navigate = useNavigate();
+
+  // Redirect to home if user is already logged in
+  useEffect(() => {
+    if (userLoaded && user) {
+      navigate("/");
+    }
+  }, [userLoaded, user, navigate]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

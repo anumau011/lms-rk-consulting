@@ -108,14 +108,18 @@ const Drafts = () => {
 
   // Helper to extract pricing
   const getCoursePricing = (course) => {
-    const standardTier = course.pricingTiers?.find(t => t.tier === 'standard');
-    const premiumTier = course.pricingTiers?.find(t => t.tier === 'premium');
-    
+    const tiers = course.pricingTiers || [];
+    const basicTier = tiers.find((t) => t.tier === "basic");
+    const goldTier = tiers.find((t) => t.tier === "gold" || t.tier === "standard");
+    const platinumTier = tiers.find((t) => t.tier === "platinum" || t.tier === "premium");
+
     return {
-      standard: standardTier?.price || 0,
-      premium: premiumTier?.price || 0,
-      hasStandard: !!standardTier,
-      hasPremium: !!premiumTier
+      basic: basicTier?.price || 0,
+      gold: goldTier?.price || 0,
+      platinum: platinumTier?.price || 0,
+      hasBasic: !!basicTier,
+      hasGold: !!goldTier,
+      hasPlatinum: !!platinumTier,
     };
   };
 
@@ -237,22 +241,22 @@ const Drafts = () => {
                               <Clock size={14} />
                               Last edited: {formatDate(draft.updatedAt || draft.createdAt)}
                             </span>
-                            {(pricing.hasStandard || pricing.hasPremium) && (
-                              <span className="flex items-center gap-2">
+                            {(pricing.hasBasic || pricing.hasGold || pricing.hasPlatinum) && (
+                              <span className="flex flex-wrap items-center gap-2">
                                 <DollarSign size={14} />
-                                {pricing.hasStandard && (
-                                  <span className="flex items-center gap-1">
-                                    <span className="text-xs text-gray-400">Standard:</span>
-                                    <span className="font-medium text-gray-700">{currency}{(pricing.standard / 100).toFixed(2)}</span>
+                                {pricing.hasBasic && (
+                                  <span className="text-xs text-slate-600">
+                                    Basic {currency}{(pricing.basic / 100).toFixed(2)}
                                   </span>
                                 )}
-                                {pricing.hasStandard && pricing.hasPremium && (
-                                  <span className="text-gray-300">|</span>
+                                {pricing.hasGold && (
+                                  <span className="text-xs text-amber-700">
+                                    Gold {currency}{(pricing.gold / 100).toFixed(2)}
+                                  </span>
                                 )}
-                                {pricing.hasPremium && (
-                                  <span className="flex items-center gap-1">
-                                    <span className="text-xs text-gray-400">Premium:</span>
-                                    <span className="font-medium text-gray-700">{currency}{(pricing.premium / 100).toFixed(2)}</span>
+                                {pricing.hasPlatinum && (
+                                  <span className="text-xs text-cyan-800">
+                                    Platinum {currency}{(pricing.platinum / 100).toFixed(2)}
                                   </span>
                                 )}
                               </span>

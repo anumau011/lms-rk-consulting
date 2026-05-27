@@ -25,6 +25,8 @@ const UserSchema = new mongoose.Schema({
     enum: ['', 'male', 'female', 'other', 'prefer_not_to_say'],
     default: '',
   },
+  country: { type: String, trim: true, default: '' },
+  profession: { type: String, trim: true, default: '' },
   profileCompleted: { type: Boolean, default: false },
   role: { 
     type: String, 

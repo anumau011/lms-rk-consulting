@@ -12,6 +12,14 @@ import {
   ChevronDown, ChevronUp, Star, FileText, Tv, Download,
   Trophy, RefreshCw, Smartphone, ShieldCheck, MessageCircle, X,
 } from "lucide-react";
+import {
+  TIER_UI,
+  normalizeTier,
+  tierRank,
+  findPricingTierRow,
+  planKeyFromTier,
+  getTierFinalAmount,
+} from "../../utils/tierStyles";
 
 const formatDurationFromSeconds = (seconds, largest = 2) => {
   const safeSeconds = Number(seconds) || 0;
@@ -96,32 +104,53 @@ const SideCard = ({
   courseData,
   handleThumbnailPlay,
   isAlreadyEnrolled,
-  hasPremiumAccess,
+  hasPlatinumAccess,
+  currentTierUpper,
   selectedPlan,
   setSelectedPlan,
-  hasPremiumTier,
-  isPremiumMode,
-  premiumFeatures,
+  hasMultipleTiers,
+  isPlatinumFeaturesMode,
+  platinumFeatures,
   currency,
   getPrice,
   getOriginalPrice,
   getDiscount,
   enrollCourse,
   totalLectures,
-  totalDurationSecs,
+  totalSections,
+  availablePlanKeys,
 }) => {
-  const courseIncludes = [
-    totalDurationSecs > 0 && {
-      icon: Tv,
-      label: `${formatDurationFromSeconds(totalDurationSecs)} on-demand video`,
-    },
-    totalLectures > 0 && { icon: FileText, label: `${totalLectures} lectures` },
-    ...(Array.isArray(courseData.courseIncludes)
-      ? courseData.courseIncludes
-          .filter((item) => typeof item === "string" && item.trim())
-          .map((label) => ({ icon: CheckCircle, label }))
-      : []),
-  ].filter(Boolean);
+  const selectedPlanLabel = selectedPlan === "platinum"
+    ? "Video (Watch Only) + Notes (Download)"
+    : selectedPlan === "gold"
+      ? "Video (Watch Only) + Notes (Read Only)"
+      : "Notes (Read Only Online)";
+
+  const allPlanKeys = ["basic", "gold", "platinum"];
+  const currentTier = normalizeTier(currentTierUpper || "BASIC");
+  const selectedTier = normalizeTier(selectedPlan || "BASIC");
+  const hasSelectedTier = isAlreadyEnrolled && tierRank(currentTier) >= tierRank(selectedTier);
+  const isUpgradeTier = isAlreadyEnrolled && tierRank(selectedTier) > tierRank(currentTier);
+  const showPriceForSelectedTier = !isAlreadyEnrolled || isUpgradeTier;
+
+  // When upgrading, show only the delta (additional amount) instead of full target price
+  const currentPlanKey = planKeyFromTier(currentTierUpper || currentTier);
+  const currentFinalAmount = getTierFinalAmount(courseData, currentPlanKey) ?? 0;
+  const targetFinalAmount = getTierFinalAmount(courseData, selectedPlan) ?? 0;
+  const upgradeDelta = Math.max(0, Math.round(targetFinalAmount - currentFinalAmount));
+  const displayIsUpgrade = isUpgradeTier;
+  const displayPriceValue = displayIsUpgrade ? upgradeDelta : (getTierFinalAmount(courseData, selectedPlan) ?? 0);
+
+  const getPrimaryLabel = () => {
+    if (hasSelectedTier) return "Go to Course";
+    if (selectedPlan === "platinum") return isAlreadyEnrolled ? "Upgrade to Platinum" : "Get Platinum";
+    if (selectedPlan === "gold") return isAlreadyEnrolled ? "Upgrade to Gold" : "Get Gold";
+    return isAlreadyEnrolled ? "Upgrade to Basic" : "Get Basic";
+  };
+
+  const handlePrimaryAction = () => {
+    enrollCourse(selectedPlan);
+  };
 
   return (
     <>
@@ -148,24 +177,30 @@ const SideCard = ({
       {/* Card body */}
       <div className="p-5">
         {/* Price */}
-        {!isAlreadyEnrolled && (
+        {showPriceForSelectedTier && (
           <div className="mb-4">
             <div className="flex items-baseline gap-3 mb-1">
               <span className="text-3xl font-black text-gray-900">
-                {currency}{getPrice()}
+                {displayIsUpgrade ? "+" : ""}{currency}{displayPriceValue.toLocaleString("en-IN")}
               </span>
-              {getDiscount() > 0 && (
+              {/* When showing upgrade delta, don't show full original/struck price or discount */}
+              {!displayIsUpgrade && getDiscount() > 0 && (
                 <span className="text-base text-gray-400 line-through">
                   {currency}{getOriginalPrice()}
                 </span>
               )}
-              {getDiscount() > 0 && (
+              {!displayIsUpgrade && getDiscount() > 0 && (
                 <span className="text-sm font-bold text-red-600">{getDiscount()}% off</span>
               )}
             </div>
-            {getDiscount() > 0 && (
+            {!displayIsUpgrade && getDiscount() > 0 && (
               <p className="text-xs font-semibold text-red-600">
                 🔥 <span className="text-gray-700 font-bold">{getDiscount()} hours</span> left at this price!
+              </p>
+            )}
+            {displayIsUpgrade && (
+              <p className="text-xs text-gray-500 font-semibold">
+                Pay additional amount to upgrade
               </p>
             )}
           </div>
@@ -174,24 +209,18 @@ const SideCard = ({
         {/* Enrolled badge */}
         {isAlreadyEnrolled && (
           <div
-            className={`mb-4 p-3 rounded-md flex items-center gap-3 ${
-              hasPremiumAccess
-                ? "bg-amber-50 border border-amber-200"
-                : "bg-purple-50 border border-purple-200"
+            className={`mb-4 p-3 rounded-md flex items-center gap-3 border ${
+              TIER_UI[normalizeTier(currentTierUpper)]?.card || "bg-slate-50 border-slate-200"
             }`}
           >
-            {hasPremiumAccess ? (
-              <Crown size={18} className="text-amber-600" />
-            ) : (
-              <BookOpen size={18} className="text-[#5624d0]" />
-            )}
+            <Crown size={18} className="text-amber-600 flex-shrink-0" />
             <div>
               <p
                 className={`text-sm font-bold ${
-                  hasPremiumAccess ? "text-amber-700" : "text-[#5624d0]"
+                  TIER_UI[normalizeTier(currentTierUpper)]?.text || "text-gray-900"
                 }`}
               >
-                {hasPremiumAccess ? "Premium Access" : "Standard Access"}
+                {TIER_UI[normalizeTier(currentTierUpper)]?.label || "Gold"} access
               </p>
               <p className="text-xs text-gray-500">You're enrolled</p>
             </div>
@@ -199,100 +228,91 @@ const SideCard = ({
         )}
 
         {/* Plan toggle */}
-        {!isAlreadyEnrolled && hasPremiumTier() && (
+        {hasMultipleTiers && (
           <div className="mb-4">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Choose Plan
             </p>
-            <div className="flex border border-gray-300 rounded overflow-hidden text-sm font-semibold">
-              <button
-                onClick={() => setSelectedPlan("standard")}
-                className={`flex-1 py-2.5 transition-colors ${
-                  selectedPlan === "standard"
-                    ? "bg-[#5624d0] text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Standard
-              </button>
-              <button
-                onClick={() => setSelectedPlan("premium")}
-                className={`flex-1 py-2.5 border-l border-gray-300 transition-colors ${
-                  selectedPlan === "premium"
-                    ? "bg-[#a435f0] text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                <Crown size={12} className="inline mr-1" />Premium
-              </button>
+            <div
+              className="grid grid-cols-3 gap-1 rounded-lg overflow-hidden text-[11px] sm:text-xs font-bold border border-gray-200"
+            >
+              {allPlanKeys.map((key) => {
+                const ui = TIER_UI[normalizeTier(key)];
+                const active = selectedPlan === key;
+                const isAvailable = availablePlanKeys?.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => isAvailable && setSelectedPlan(key)}
+                    disabled={!isAvailable}
+                    className={`py-2.5 px-1 transition-colors text-center leading-tight ${
+                      !isAvailable
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : active
+                          ? ui.selectActive
+                          : ui.selectInactive
+                    }`}
+                  >
+                    {ui.shortLabel}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* CTA */}
         <button
-          onClick={() => enrollCourse()}
+          onClick={handlePrimaryAction}
           className="w-full py-3.5 rounded font-bold text-white text-sm shadow transition-all hover:opacity-90 active:scale-[.98] mb-3 flex items-center justify-center gap-2 bg-[#a435f0]"
         >
-          {isAlreadyEnrolled ? (
-            <><BookOpen size={16} /> Go to Course</>
-          ) : selectedPlan === "premium" ? (
-            <><Crown size={16} /> Get Premium Access</>
+          {hasSelectedTier ? (
+            <><BookOpen size={16} /> {getPrimaryLabel()}</>
+          ) : selectedPlan === "platinum" ? (
+            <><Crown size={16} /> {getPrimaryLabel()}</>
+          ) : selectedPlan === "gold" ? (
+            <><Zap size={16} /> {getPrimaryLabel()}</>
           ) : (
-            <><Zap size={16} /> Enroll Now</>
+            <><BookOpen size={16} /> {getPrimaryLabel()}</>
           )}
         </button>
 
-        {/* Upgrade */}
-        {isAlreadyEnrolled && !hasPremiumAccess && hasPremiumTier() && (
-          <button
-            onClick={() => { setSelectedPlan("premium"); enrollCourse("premium"); }}
-            className="w-full py-2.5 mb-3 border-2 border-[#a435f0] text-[#a435f0] hover:bg-purple-50 font-bold text-sm rounded transition-colors flex items-center justify-center gap-2"
-          >
-            <Crown size={15} /> Upgrade to Premium
-          </button>
-        )}
-
-        <p className="text-center text-xs text-gray-500 mb-5 flex items-center justify-center gap-1.5">
-          <ShieldCheck size={13} className="text-green-500" /> 30-Day Money-Back Guarantee
-        </p>
-
         {/* Course includes */}
-        {courseIncludes.length > 0 && (
-          <div>
-            <p className="text-sm font-bold text-gray-900 mb-3">This course includes:</p>
-            <ul className="space-y-2.5">
-              {courseIncludes.map(({ icon: Icon, label }, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm text-gray-700">
-                  <Icon size={15} className="text-gray-500 flex-shrink-0" />{label}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        <div>
+          <p className="text-sm font-bold text-gray-900 mb-3">This course includes:</p>
+          <ul className="space-y-2.5">
+            <li className="flex items-center gap-3 text-sm text-gray-700">
+              <CheckCircle size={15} className="text-gray-500 flex-shrink-0" />
+              {totalSections} sections
+            </li>
+            <li className="flex items-center gap-3 text-sm text-gray-700">
+              <FileText size={15} className="text-gray-500 flex-shrink-0" />
+              {totalLectures} lectures
+            </li>
+            <li className="flex items-center gap-3 text-sm text-gray-700">
+              <BookOpen size={15} className="text-gray-500 flex-shrink-0" />
+              {selectedPlanLabel}
+            </li>
+          </ul>
+        </div>
 
         {/* Premium extras */}
-        {isPremiumMode && premiumFeatures.length > 0 && (
+        {isPlatinumFeaturesMode && platinumFeatures.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-sm font-bold text-[#a435f0] mb-2 flex items-center gap-1.5">
-              <Crown size={14} /> Premium Benefits
+            <p className="text-sm font-bold text-cyan-700 mb-2 flex items-center gap-1.5">
+              <Crown size={14} /> Platinum benefits
             </p>
             <ul className="space-y-2">
-              {premiumFeatures.map((f, i) => (
+              {platinumFeatures.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                  <CheckCircle size={13} className="text-[#a435f0] flex-shrink-0" />{f}
+                  <CheckCircle size={13} className="text-cyan-600 flex-shrink-0" />{f}
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* Footer links */}
-        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-center gap-4">
-          <button className="text-xs font-semibold text-[#5624d0] hover:underline">Share</button>
-          <button className="text-xs font-semibold text-[#5624d0] hover:underline">Gift this course</button>
-          <button className="text-xs font-semibold text-[#5624d0] hover:underline">Apply coupon</button>
-        </div>
       </div>
     </>
   );
@@ -308,10 +328,10 @@ const CourseDetails = () => {
   const [courseData, setCourseData] = useState(null);
   const [openSections, setOpenSections] = useState({ 0: true });
   const [isAlreadyEnrolled, setIsAlreadyEnrolled] = useState(false);
-  const [hasPremiumAccess, setHasPremiumAccess] = useState(false);
+  const [hasPlatinumAccess, setHasPlatinumAccess] = useState(false);
   const [playingVideo, setPlayingVideo] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState("standard");
+  const [selectedPlan, setSelectedPlan] = useState("basic");
   const [showAllSections, setShowAllSections] = useState(false);
   const [courseFeedback, setCourseFeedback] = useState([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
@@ -347,12 +367,20 @@ const CourseDetails = () => {
   }, []);
 
   useEffect(() => {
+    if (!courseData?.pricingTiers) return;
+    const keys = ["basic", "gold", "platinum"].filter((pk) => findPricingTierRow(courseData, pk));
+    if (keys.length && !keys.includes(selectedPlan)) setSelectedPlan(keys[0]);
+  }, [courseData?._id]);
+
+  useEffect(() => {
     if (userData && courseData) {
       const enrolled = userData.enrolledCourses?.includes(courseData._id);
-      const premium = userData.premiumCourses?.includes(courseData._id);
+      const platinum = userData.premiumCourses?.includes(courseData._id);
       setIsAlreadyEnrolled(enrolled);
-      setHasPremiumAccess(premium);
-      if (enrolled) setSelectedPlan(premium ? "premium" : "standard");
+      setHasPlatinumAccess(platinum);
+      if (enrolled && userData.tierByCourse?.[courseData._id]) {
+        setSelectedPlan(planKeyFromTier(userData.tierByCourse[courseData._id]));
+      }
     }
   }, [userData, courseData]);
 
@@ -398,29 +426,43 @@ const CourseDetails = () => {
 
   const enrollCourse = async (planOverride) => {
     const plan = planOverride || selectedPlan;
+    const targetUpper = normalizeTier(
+      plan === "basic" ? "BASIC" : plan === "gold" ? "GOLD" : "PLATINUM"
+    );
     try {
       if (!userData) return toast.warn("Login to Enroll");
-      if (isAlreadyEnrolled && !hasPremiumAccess && plan === "premium") {
+      if (isAlreadyEnrolled) {
+        const current = normalizeTier(userData.tierByCourse?.[courseData._id] || "GOLD");
+        if (tierRank(targetUpper) <= tierRank(current)) {
+          return navigate("/my-enrollments");
+        }
         const token = await getToken();
         const { data } = await axios.post(
           backendUrl + "/api/user/upgrade",
-          { courseId: courseData._id },
+          { courseId: courseData._id, targetTier: targetUpper },
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (!data.success) { alert(data.message); return; }
+        if (!data.success) {
+          alert(data.message);
+          return;
+        }
         openRazorpay(data, "upgrade");
         return;
       }
-      if (isAlreadyEnrolled) return navigate("/my-enrollments");
       const token = await getToken();
       const { data } = await axios.post(
         backendUrl + "/api/user/purchase",
-        { courseId: courseData._id, planType: plan },
+        { courseId: courseData._id, planType: targetUpper },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (!data.success) { alert(data.message); return; }
+      if (!data.success) {
+        alert(data.message);
+        return;
+      }
       openRazorpay(data, "purchase");
-    } catch (e) { toast.error(e.message); }
+    } catch (e) {
+      toast.error(e.message);
+    }
   };
 
   const isFreeCheck = (l) => !!(l.isFreePreview || l.isFree || l.isPreview || l.freePreview);
@@ -461,10 +503,13 @@ const CourseDetails = () => {
   };
 
   const toggleSection = (i) => setOpenSections((p) => ({ ...p, [i]: !p[i] }));
-  const getPrice = () => courseData.pricingTiers?.find((t) => t.tier === selectedPlan)?.finalPrice || 0;
-  const getOriginalPrice = () => courseData.pricingTiers?.find((t) => t.tier === selectedPlan)?.price || 0;
-  const getDiscount = () => courseData.pricingTiers?.find((t) => t.tier === selectedPlan)?.discount || 0;
-  const hasPremiumTier = () => courseData.pricingTiers?.some((t) => t.tier === "premium");
+  const getPrice = () => getTierFinalAmount(courseData, selectedPlan) ?? 0;
+  const getOriginalPrice = () => findPricingTierRow(courseData, selectedPlan)?.price ?? 0;
+  const getDiscount = () => findPricingTierRow(courseData, selectedPlan)?.discount ?? 0;
+  const availablePlanKeys = ["basic", "gold", "platinum"].filter((pk) =>
+    findPricingTierRow(courseData, pk)
+  );
+  const hasMultipleTiers = availablePlanKeys.length > 0;
   const getTotalLectures = () => courseData.courseContent?.reduce((a, c) => a + (c.chapterContent?.length || 0), 0) || 0;
   const getTotalDuration = () => {
     let t = 0;
@@ -475,11 +520,12 @@ const CourseDetails = () => {
   if (!courseData) return <Loading />;
 
   const rating = calculateRating(courseData);
-  const isPremiumMode = isAlreadyEnrolled ? hasPremiumAccess : selectedPlan === "premium";
-  const premiumFeatures =
-    courseData.pricingTiers?.find((t) => t.tier === "premium")?.features?.length > 0
-      ? courseData.pricingTiers.find((t) => t.tier === "premium").features
-      : [];
+  const platinumRow = findPricingTierRow(courseData, "platinum");
+  const isPlatinumFeaturesMode =
+    Boolean(platinumRow?.features?.length) &&
+    (isAlreadyEnrolled ? hasPlatinumAccess : selectedPlan === "platinum");
+  const platinumFeatures = platinumRow?.features || [];
+  const currentTierUpper = userData?.tierByCourse?.[courseData._id] || "GOLD";
 
   const totalLectures = getTotalLectures();
   const totalDurationSecs = getTotalDuration();
@@ -493,19 +539,21 @@ const CourseDetails = () => {
     courseData,
     handleThumbnailPlay,
     isAlreadyEnrolled,
-    hasPremiumAccess,
+    hasPlatinumAccess,
+    currentTierUpper,
     selectedPlan,
     setSelectedPlan,
-    hasPremiumTier,
-    isPremiumMode,
-    premiumFeatures,
+    hasMultipleTiers,
+    availablePlanKeys,
+    isPlatinumFeaturesMode,
+    platinumFeatures,
     currency,
     getPrice,
     getOriginalPrice,
     getDiscount,
     enrollCourse,
     totalLectures,
-    totalDurationSecs,
+    totalSections,
   };
 
   return (
@@ -770,7 +818,7 @@ const CourseDetails = () => {
                           })}
                         </p>
                       </div>
-                      <p className="text-gray-700 text-sm leading-relaxed">{feedback.comment}</p>
+                      <p className="text-gray-900 text-sm leading-relaxed">{feedback.comment}</p>
                     </div>
                   ))}
                 </div>

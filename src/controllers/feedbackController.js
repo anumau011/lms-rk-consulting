@@ -1,15 +1,36 @@
 const Course = require('../models/Course');
 const Enrollment = require('../models/Enrollment');
 
-/** Recalculate and persist average rating for a course. */
+/**
+ * One score per enrollment: prefer courseRating (star rating), else feedback.rating.
+ * Both /add-rating and /add-feedback paths update Course.averageRating + totalReviews.
+ */
 async function recalculateCourseRating(courseId) {
-  const [stats] = await Enrollment.aggregate([
-    { $match: { courseId, 'purchase.status': 'CAPTURED', courseRating: { $gte: 1, $lte: 5 } } },
-    { $group: { _id: '$courseId', averageRating: { $avg: '$courseRating' }, totalReviews: { $sum: 1 } } },
-  ]);
+  const enrollments = await Enrollment.find({
+    courseId,
+    'purchase.status': 'CAPTURED',
+  })
+    .select('courseRating feedback')
+    .lean();
 
-  const averageRating = stats ? Number(stats.averageRating.toFixed(2)) : 0;
-  const totalReviews = stats?.totalReviews || 0;
+  const scores = enrollments
+    .map((e) => {
+      const cr = e.courseRating;
+      if (typeof cr === 'number' && cr >= 1 && cr <= 5) return cr;
+      const fr = e.feedback?.rating;
+      if (typeof fr === 'number' && fr >= 1 && fr <= 5) return fr;
+      return null;
+    })
+    .filter((s) => s != null);
+
+  if (scores.length === 0) {
+    await Course.findByIdAndUpdate(courseId, { $set: { averageRating: 0, totalReviews: 0 } });
+    return { averageRating: 0, totalReviews: 0 };
+  }
+
+  const sum = scores.reduce((a, b) => a + b, 0);
+  const averageRating = Number((sum / scores.length).toFixed(2));
+  const totalReviews = scores.length;
 
   await Course.findByIdAndUpdate(courseId, { $set: { averageRating, totalReviews } });
   return { averageRating, totalReviews };
@@ -64,7 +85,15 @@ const addFeedback = async (req, res) => {
   enrollment.feedback = { rating: numericRating, comment: comment || undefined, submittedAt: new Date() };
   await enrollment.save();
 
-  return res.json({ success: true, message: 'Feedback submitted successfully', feedback: enrollment.feedback });
+  const stats = await recalculateCourseRating(enrollment.courseId);
+
+  return res.json({
+    success: true,
+    message: 'Feedback submitted successfully',
+    feedback: enrollment.feedback,
+    averageRating: stats.averageRating,
+    totalReviews: stats.totalReviews,
+  });
 };
 
 /** GET /course/:courseId/feedback — Public: list course feedback. */

@@ -1,5 +1,6 @@
 const Section = require('../models/Section');
 const Lecture = require('../models/Lecture');
+const { cleanupLectureAssets } = require('../utils/lectureCleanup');
 
 /** POST /:courseId/sections — Create a new section. */
 const createSection = async (req, res) => {
@@ -47,6 +48,15 @@ const updateSection = async (req, res) => {
 
 /** DELETE /:courseId/sections/:sectionId — Delete section and its lectures. */
 const deleteSection = async (req, res) => {
+  const lectures = await Lecture.find({
+    sectionId: req.params.sectionId,
+    courseId: req.params.courseId,
+  }).select('_id courseId videoId');
+
+  for (const lecture of lectures) {
+    await cleanupLectureAssets(lecture);
+  }
+
   await Lecture.deleteMany({ sectionId: req.params.sectionId });
   await Section.findByIdAndDelete(req.params.sectionId);
   res.json({ success: true, message: 'Section deleted successfully' });

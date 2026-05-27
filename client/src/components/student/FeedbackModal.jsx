@@ -1,11 +1,19 @@
 import React, { useState } from "react";
 import { X, Star, Loader2 } from "lucide-react";
 
-const FeedbackModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
-  const [rating, setRating] = useState(0);
+const FeedbackModal = ({ isOpen, onClose, onSubmit, isLoading, initialRating = 0, initialComment = "", isEdit = false }) => {
+  const [rating, setRating] = useState(initialRating || 0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState(initialComment || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // keep local state in sync when opening for edit
+  React.useEffect(() => {
+    if (isOpen) {
+      setRating(initialRating || 0);
+      setComment(initialComment || "");
+    }
+  }, [isOpen, initialRating, initialComment]);
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -92,7 +100,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
               onChange={(e) => setComment(e.target.value)}
               disabled={isSubmitting}
               placeholder="Share what you liked or areas for improvement..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-[#a435f0] focus:border-transparent outline-none text-sm disabled:bg-gray-100 disabled:opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-[#a435f0] focus:border-transparent outline-none text-sm disabled:bg-gray-100 disabled:opacity-50 text-gray-900"
               rows="4"
               maxLength={500}
             />
@@ -119,10 +127,10 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
             {isSubmitting || isLoading ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Submitting...
+                {isEdit ? "Updating..." : "Submitting..."}
               </>
             ) : (
-              "Submit Feedback"
+              isEdit ? "Update Feedback" : "Submit Feedback"
             )}
           </button>
         </div>

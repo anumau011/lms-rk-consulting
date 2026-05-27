@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const PricingTierSchema = new mongoose.Schema({
     tier: {
         type: String,
-        enum: ['standard', 'premium'],
+        enum: ['basic', 'gold', 'platinum'],
         required: true
     },
     price: {
@@ -91,20 +91,24 @@ const CourseSchema = new mongoose.Schema({
         step4: { type: Boolean, default: false }, // Pricing
     },
 
+    // Course expiration settings
+    enrollmentExpirationMonths: {
+        type: Number,
+        default: 12,
+        min: 1,
+        max: 120, // Max 10 years
+        description: 'How many months students can access the course after enrollment'
+    },
+
     // Analytics
     enrollmentCount: {
         type: Number,
         default: 0
     },
     enrollmentsByTier: {
-        standard: {
-            type: Number,
-            default: 0
-        },
-        premium: {
-            type: Number,
-            default: 0
-        }
+        basic: { type: Number, default: 0 },
+        gold: { type: Number, default: 0 },
+        platinum: { type: Number, default: 0 },
     },
     averageRating: {
         type: Number,
@@ -116,13 +120,6 @@ const CourseSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-
-    // SEO and metadata
-    slug: {
-        type: String,
-        unique: true,
-        sparse: true
-    }
 }, {
     timestamps: true,
     versionKey: false
@@ -132,7 +129,6 @@ const CourseSchema = new mongoose.Schema({
 CourseSchema.index({ instructorId: 1, status: 1 });
 CourseSchema.index({ status: 1, createdAt: -1 });
 CourseSchema.index({ category: 1, status: 1 });
-CourseSchema.index({ slug: 1 }, { unique: true, sparse: true });
 
 // Methods
 CourseSchema.methods.isStepCompleted = function (step) {

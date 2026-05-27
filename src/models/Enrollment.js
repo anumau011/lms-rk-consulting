@@ -6,7 +6,7 @@ const PurchaseSchema = new Schema(
   {
     purchasedTier: {
       type: String,
-      enum: ["STANDARD", "PREMIUM"],
+      enum: ["BASIC", "GOLD", "PLATINUM", "STANDARD", "PREMIUM"],
       required: true,
     },
 
@@ -33,8 +33,8 @@ const PurchaseSchema = new Schema(
 
 const UpgradeSchema = new Schema(
   {
-    fromTier: { type: String, enum: ["STANDARD"], required: true },
-    toTier:   { type: String, enum: ["PREMIUM"],  required: true },
+    fromTier: { type: String, enum: ["BASIC", "GOLD", "STANDARD", "PREMIUM", "PLATINUM"], required: true },
+    toTier: { type: String, enum: ["GOLD", "PLATINUM", "PREMIUM"], required: true },
 
     razorpayOrderId:   { type: String, required: true },
     razorpayPaymentId: { type: String },
@@ -74,7 +74,7 @@ const EnrollmentSchema = new Schema(
     // Single source of truth for what the user can access right now
     tier: {
       type: String,
-      enum: ["STANDARD", "PREMIUM"],
+      enum: ["BASIC", "GOLD", "PLATINUM", "STANDARD", "PREMIUM"],
       required: true,
     },
 
@@ -120,6 +120,12 @@ const EnrollmentSchema = new Schema(
         default: undefined,
       },
     },
+
+    // Course expiration date — student loses access after this date
+    expiresAt: {
+      type: Date,
+      default: undefined,
+    },
   },
   { timestamps: true }
 );
@@ -130,5 +136,6 @@ EnrollmentSchema.index({ userId: 1, courseId: 1 }, { unique: true });
 EnrollmentSchema.index({ userId: 1 });
 EnrollmentSchema.index({ "purchase.razorpayOrderId": 1 }, { unique: true, sparse: true });
 EnrollmentSchema.index({ "upgrade.razorpayOrderId":  1 }, { unique: true, sparse: true });
+EnrollmentSchema.index({ expiresAt: 1 }, { sparse: true });
 
 module.exports = mongoose.model("Enrollment", EnrollmentSchema);

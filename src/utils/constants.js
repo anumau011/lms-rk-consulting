@@ -16,14 +16,14 @@ const STATUS_PRIORITY = {
   REFUNDED: 3,
 };
 
-/** Valid subscription tiers. */
-const VALID_TIERS = ['STANDARD', 'PREMIUM'];
+/** Valid subscription tiers (purchase / enrollment). Legacy STANDARD/PREMIUM accepted. */
+const VALID_TIERS = ['BASIC', 'GOLD', 'PLATINUM', 'STANDARD', 'PREMIUM'];
 
 /** Valid user roles. */
 const VALID_ROLES = ['student', 'educator', 'admin'];
 
-/** Valid pricing tier names (lowercase, as stored in Course model). */
-const VALID_PRICING_TIERS = ['standard', 'premium'];
+/** Valid pricing tier names (lowercase, as stored in Course model). Legacy standard/premium accepted. */
+const VALID_PRICING_TIERS = ['basic', 'gold', 'platinum', 'standard', 'premium'];
 
 /** Allowed MIME types for note/resource uploads. */
 const ALLOWED_NOTE_MIME_TYPES = [

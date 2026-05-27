@@ -6,6 +6,8 @@ const Enrollment = require('../models/Enrollment');
 const { webhookQueue } = require('../services/queue');
 const { mapBunnyStatus, getVideo } = require('../services/bunny');
 const logger = require('../utils/logger');
+const { normalizeEnrollmentTier, enrollmentsByTierKey } = require('../utils/tierAccess');
+const { sendWelcomeEmail, sendAdminRegistrationAlert } = require('../services/emailService');
 
 const TAG = 'WEBHOOK_CTRL';
 
@@ -41,14 +43,25 @@ const handleClerkWebhook = async (req, res) => {
   logger.info(TAG, `Processing Clerk webhook: ${type}`);
 
   switch (type) {
-    case 'user.created':
+    case 'user.created': {
+      const newUserEmail = data.email_addresses[0].email_address;
       await User.create({
         _id: data.id,
-        email: data.email_addresses[0].email_address,
+        email: newUserEmail,
         firstName: data.first_name,
         lastName: data.last_name,
       });
+      // Fire emails asynchronously — never block the webhook response
+      Promise.allSettled([
+        sendWelcomeEmail({ to: newUserEmail, firstName: data.first_name }),
+        sendAdminRegistrationAlert({ studentEmail: newUserEmail, firstName: data.first_name, lastName: data.last_name }),
+      ]).then((results) => {
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') logger.error(TAG, `Registration email [${i}] failed:`, r.reason?.message);
+        });
+      });
       break;
+    }
     case 'user.updated':
       await User.findByIdAndUpdate(data.id, {
         email: data.email_addresses[0].email_address,
@@ -208,32 +221,42 @@ const handleRazorpayWebhook = async (req, res) => {
       if (result.modifiedCount === 0) {
         logger.warn(TAG, 'Purchase capture no-op', { orderId });
       } else {
+        const tierKey = enrollmentsByTierKey(enrollment.tier || 'GOLD');
         await Course.findByIdAndUpdate(enrollment.courseId, {
           $inc: {
             enrollmentCount: 1,
-            [`enrollmentsByTier.${(enrollment.tier || 'STANDARD').toLowerCase()}`]: 1
-          }
+            [`enrollmentsByTier.${tierKey}`]: 1,
+          },
         });
       }
     }
   }
 
   if (isUpgrade) {
-    const enrollment = await Enrollment.findOne({ 'upgrade.razorpayOrderId': orderId }).select('courseId').lean();
+    const enrollment = await Enrollment.findOne({ 'upgrade.razorpayOrderId': orderId })
+      .select('courseId tier upgrade')
+      .lean();
     if (enrollment) {
+      const newTier = normalizeEnrollmentTier(enrollment.upgrade?.toTier);
+      const fromKey = enrollmentsByTierKey(enrollment.tier);
+      const toKey = enrollmentsByTierKey(newTier);
       const result = await Enrollment.updateOne(
         { 'upgrade.razorpayOrderId': orderId, 'upgrade.status': 'PENDING' },
-        { $set: { tier: 'PREMIUM', 'upgrade.status': 'CAPTURED', 'upgrade.razorpayPaymentId': payment.id, 'upgrade.razorpaySignature': payment.signature ?? null, 'upgrade.capturedAt': new Date() } }
+        {
+          $set: {
+            tier: newTier,
+            'upgrade.status': 'CAPTURED',
+            'upgrade.razorpayPaymentId': payment.id,
+            'upgrade.razorpaySignature': payment.signature ?? null,
+            'upgrade.capturedAt': new Date(),
+          },
+        }
       );
       if (result.modifiedCount === 0) {
         logger.warn(TAG, 'Upgrade capture no-op', { orderId });
       } else {
-        await Course.findByIdAndUpdate(enrollment.courseId, {
-          $inc: {
-            'enrollmentsByTier.standard': -1,
-            'enrollmentsByTier.premium': 1
-          }
-        });
+        const inc = { [`enrollmentsByTier.${fromKey}`]: -1, [`enrollmentsByTier.${toKey}`]: 1 };
+        await Course.findByIdAndUpdate(enrollment.courseId, { $inc: inc });
       }
     }
   }

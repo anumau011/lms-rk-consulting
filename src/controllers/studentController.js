@@ -5,6 +5,14 @@ const Enrollment = require('../models/Enrollment');
 const User = require('../models/User');
 const Progress = require('../models/Progress');
 const AnalyticsEvent = require('../models/AnalyticsEvent');
+const {
+  normalizeEnrollmentTier,
+  canDownloadCourseNotes,
+  canViewVideo,
+  normalizePricingTiersForDisplay,
+  tierFinalAmount,
+  isEnrollmentExpired,
+} = require('../utils/tierAccess');
 
 /**
  * Assemble course content (sections + lectures) for student-facing views.
@@ -46,8 +54,10 @@ const getAllCourses = async (req, res) => {
     .lean();
 
   const formattedCourses = courses.map((course) => {
-    const standardTier = course.pricingTiers?.find((t) => t.tier === 'standard' && t.isActive);
-    const premiumTier = course.pricingTiers?.find((t) => t.tier === 'premium' && t.isActive);
+    const displayTiers = normalizePricingTiersForDisplay(course.pricingTiers || []);
+    const basicTier = displayTiers.find((t) => t.tier === 'basic');
+    const goldTier = displayTiers.find((t) => t.tier === 'gold');
+    const platinumTier = displayTiers.find((t) => t.tier === 'platinum');
 
     return {
       _id: course._id,
@@ -58,12 +68,22 @@ const getAllCourses = async (req, res) => {
       level: course.level,
       currency: course.currency?.toUpperCase(),
       createdAt: course.createdAt,
-      pricingTiers: course.pricingTiers,
+      pricingTiers: displayTiers,
       price: {
-        standard: standardTier?.finalPrice ?? null,
-        premium: premiumTier?.finalPrice ?? null,
+        basic: basicTier != null ? tierFinalAmount(basicTier) : null,
+        gold: goldTier != null ? tierFinalAmount(goldTier) : null,
+        platinum: platinumTier != null ? tierFinalAmount(platinumTier) : null,
+        standard: goldTier != null ? tierFinalAmount(goldTier) : null,
+        premium: platinumTier != null ? tierFinalAmount(platinumTier) : null,
       },
-      rating: course.averageRating || 0,
+      averageRating:
+        course.averageRating != null && course.averageRating !== ''
+          ? Number(course.averageRating)
+          : 0,
+      rating:
+        course.averageRating != null && course.averageRating !== ''
+          ? Number(course.averageRating)
+          : 0,
       totalReviews: course.totalReviews || 0,
       enrollmentCount: course.enrollmentCount || 0,
       instructor: {
@@ -86,6 +106,10 @@ const getCourseById = async (req, res) => {
   if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
 
   const courseContent = await getCourseContent(course._id);
+  const displayTiers = normalizePricingTiersForDisplay(course.pricingTiers || []);
+  const basicTier = displayTiers.find((t) => t.tier === 'basic');
+  const goldTier = displayTiers.find((t) => t.tier === 'gold');
+  const platinumTier = displayTiers.find((t) => t.tier === 'platinum');
 
   res.json({
     success: true,
@@ -99,7 +123,12 @@ const getCourseById = async (req, res) => {
       level: course.level,
       currency: course.currency?.toUpperCase(),
       createdAt: course.createdAt,
-      pricingTiers: course.pricingTiers,
+      pricingTiers: displayTiers,
+      price: {
+        basic: basicTier != null ? tierFinalAmount(basicTier) : null,
+        gold: goldTier != null ? tierFinalAmount(goldTier) : null,
+        platinum: platinumTier != null ? tierFinalAmount(platinumTier) : null,
+      },
       enrollmentCount: course.enrollmentCount || 0,
       averageRating: course.averageRating || 0,
       totalReviews: course.totalReviews || 0,
@@ -119,16 +148,30 @@ const getUserData = async (req, res) => {
     'purchase.status': 'CAPTURED',
   }).lean();
 
-  const enrolledCourses = enrollments.map((e) => e.courseId.toString());
-  const premiumCourses = enrollments
-    .filter((e) => e.tier === 'PREMIUM')
+  // Filter out expired enrollments
+  const activeEnrollments = enrollments.filter((e) => !isEnrollmentExpired(e));
+
+  const enrolledCourses = activeEnrollments.map((e) => e.courseId.toString());
+  const tierByCourse = {};
+  activeEnrollments.forEach((e) => {
+    tierByCourse[e.courseId.toString()] = normalizeEnrollmentTier(e.tier);
+  });
+  const premiumCourses = activeEnrollments
+    .filter((e) => canDownloadCourseNotes(e.tier))
     .map((e) => e.courseId.toString());
-  
-  console.log(user,enrolledCourses,premiumCourses);
+  const videoAccessCourses = activeEnrollments
+    .filter((e) => canViewVideo(e.tier))
+    .map((e) => e.courseId.toString());
 
   res.json({
     success: true,
-    user: { ...user.toObject(), enrolledCourses, premiumCourses },
+    user: {
+      ...user.toObject(),
+      enrolledCourses,
+      premiumCourses,
+      tierByCourse,
+      videoAccessCourses,
+    },
   });
 };
 
@@ -145,8 +188,11 @@ const getEnrolledCourses = async (req, res) => {
     })
     .lean();
 
+  // Filter out expired enrollments
+  const activeEnrollments = enrollments.filter((e) => !isEnrollmentExpired(e));
+
   const enrolledCourses = await Promise.all(
-    enrollments.map(async (enrollment) => {
+    activeEnrollments.map(async (enrollment) => {
       const course = enrollment.courseId;
       const content = await getCourseContent(course._id);
 
@@ -165,7 +211,9 @@ const getEnrolledCourses = async (req, res) => {
         courseContent: content,
         purchaseTier: enrollment.tier,
         userRating: enrollment.courseRating || 0,
+        feedback: enrollment.feedback || null,
         progress: 0,
+        expiresAt: enrollment.expiresAt, // Include enrollment expiration date
       };
     })
   );
@@ -209,8 +257,32 @@ const getCourseProgress = async (req, res) => {
   const enrollment = await Enrollment.findOne({ userId, courseId, 'purchase.status': 'CAPTURED' });
   if (!enrollment) return res.status(403).json({ success: false, message: 'You are not enrolled in this course' });
 
+  // Check if enrollment is expired
+  if (isEnrollmentExpired(enrollment)) {
+    return res.status(403).json({ success: false, message: 'Your enrollment has expired. Please renew to access this course.' });
+  }
+
   const progressDoc = await Progress.findOne({ userId, courseId }).select('lectureCompleted').lean();
   let lectureCompleted = (progressDoc?.lectureCompleted || []).map((id) => String(id));
+
+  // Remove any stale completed lecture IDs that no longer exist in the course
+  const existingLectures = await Lecture.find({ courseId }).select('_id').lean();
+  const existingLectureIds = new Set(existingLectures.map((l) => String(l._id)));
+  const filteredCompleted = lectureCompleted.filter((id) => existingLectureIds.has(id));
+
+  if (filteredCompleted.length !== lectureCompleted.length) {
+    // Update the progress doc to clean up removed lecture references
+    try {
+      await Progress.updateOne(
+        { userId, courseId },
+        { $set: { lectureCompleted: filteredCompleted, lastUpdatedAt: new Date() } }
+      );
+      lectureCompleted = filteredCompleted;
+    } catch (e) {
+      // Non-fatal: proceed with filtered list even if cleanup fails
+      lectureCompleted = filteredCompleted;
+    }
+  }
 
   // Backward compat: use analytics events if dedicated progress doc empty
   if (!lectureCompleted.length) {

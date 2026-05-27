@@ -44,4 +44,34 @@ worker.on('failed', (job, err) => {
     console.error(`[Worker] Job ${job.id} failed with ${err.message}`);
 });
 
+// Graceful shutdown
+const gracefulShutdown = async () => {
+    console.log('[Worker] Shutting down gracefully...');
+    try {
+        await worker.close();
+        console.log('[Worker] Worker closed');
+    } catch (err) {
+        console.error('[Worker] Error closing worker:', err);
+    }
+    
+    try {
+        await connection.quit();
+        console.log('[Worker] Redis connection closed');
+    } catch (err) {
+        console.error('[Worker] Error closing Redis:', err);
+    }
+    
+    try {
+        await mongoose.connection.close();
+        console.log('[Worker] MongoDB connection closed');
+    } catch (err) {
+        console.error('[Worker] Error closing MongoDB:', err);
+    }
+    
+    process.exit(0);
+};
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
 console.log('[Worker] Started listening for events...');

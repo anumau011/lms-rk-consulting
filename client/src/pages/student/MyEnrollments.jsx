@@ -5,6 +5,8 @@ import Footer from "../../components/student/Footer";
 import axios from "axios";
 import toast from "react-hot-toast";
 import humanizeDuration from "humanize-duration";
+import { normalizeTier, tierUi } from "../../utils/tierStyles";
+import { AlertCircle, Clock } from "lucide-react";
 
 const MyEnrollments = () => {
   const {
@@ -46,9 +48,32 @@ const MyEnrollments = () => {
     return Math.min(100, Math.round((progress.lectureCompleted * 100) / progress.totalLectures));
   };
 
-  // Check if course has premium access
-  const isPremiumCourse = (courseId) => {
-    return userData?.premiumCourses?.includes(courseId);
+  const tierBadgeClass = (courseId) => {
+    const t = normalizeTier(userData?.tierByCourse?.[courseId] || "GOLD");
+    if (t === "PLATINUM") return "bg-slate-900 text-cyan-100 border border-cyan-400";
+    if (t === "GOLD") return "bg-amber-500 text-white";
+    return "bg-slate-600 text-white";
+  };
+
+  const tierLabel = (courseId) => tierUi(userData?.tierByCourse?.[courseId]).label;
+
+  const formatExpirationDate = (expiresAt) => {
+    if (!expiresAt) return null;
+    const date = new Date(expiresAt);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const getDaysRemaining = (expiresAt) => {
+    if (!expiresAt) return null;
+    const expiryDate = new Date(expiresAt);
+    const today = new Date();
+    const daysLeft = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+    return daysLeft > 0 ? daysLeft : 0;
+  };
+
+  const isExpiringsoon = (expiresAt) => {
+    const daysLeft = getDaysRemaining(expiresAt);
+    return daysLeft !== null && daysLeft > 0 && daysLeft <= 30;
   };
 
   const getCourseProgress = async () => {
@@ -117,8 +142,10 @@ const MyEnrollments = () => {
               className="bg-white rounded-xl shadow-sm p-4 space-y-3 relative overflow-hidden"
             >
               {/* Premium/Standard Badge */}
-              <div className="absolute top-0 right-0 bg-gray-700 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg">
-                {isPremiumCourse(course._id) ? 'PREMIUM' : 'STANDARD'}
+              <div
+                className={`absolute top-0 right-0 text-[10px] font-bold px-3 py-1 rounded-bl-lg ${tierBadgeClass(course._id)}`}
+              >
+                {tierLabel(course._id)}
               </div>
 
               <div className="flex gap-4 pt-2">
@@ -149,6 +176,13 @@ const MyEnrollments = () => {
                   <p className="text-sm text-gray-500 mt-1">
                     {getCourseDurationText(course)}
                   </p>
+                  
+                  {course.expiresAt && (
+                    <div className={`flex items-center gap-2 text-xs mt-2 ${isExpiringsoon(course.expiresAt) ? 'text-orange-600' : 'text-gray-500'}`}>
+                      <Clock size={14} />
+                      <span>Expires: {formatExpirationDate(course.expiresAt)} ({getDaysRemaining(course.expiresAt)} days)</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -171,6 +205,13 @@ const MyEnrollments = () => {
                     : "Continue"}
                 </button>
               </div>
+
+              {isExpiringsoon(course.expiresAt) && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700 mt-2">
+                  <AlertCircle size={14} />
+                  <span>Access expires soon! Renew to continue learning.</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -184,7 +225,8 @@ const MyEnrollments = () => {
                   <th className="px-4 py-3 text-left">Course</th>
                   <th className="px-4 py-3 text-left">Plan</th>
                   <th className="px-4 py-3 text-left">Duration</th>
-                  <th className="px-4 py-3 text-left">Completed</th>
+                  <th className="px-4 py-3 text-left">Progress</th>
+                  <th className="px-4 py-3 text-left">Expires</th>
                   <th className="px-4 py-3 text-right">Status</th>
                 </tr>
               </thead>
@@ -221,15 +263,11 @@ const MyEnrollments = () => {
                     </td>
 
                     <td className="px-4 py-4">
-                      {isPremiumCourse(course._id) ? (
-                        <span className="inline-flex items-center px-2.5 py-1 bg-gray-200 text-gray-800 text-xs font-bold rounded-full">
-                          PREMIUM
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 bg-gray-200 text-gray-800 text-xs font-bold rounded-full">
-                          STANDARD
-                        </span>
-                      )}
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full ${tierBadgeClass(course._id)}`}
+                      >
+                        {tierLabel(course._id)}
+                      </span>
                     </td>
 
                     <td className="px-4 py-4">
@@ -242,6 +280,21 @@ const MyEnrollments = () => {
                           ? `${progressArray[index].lectureCompleted}/${progressArray[index].totalLectures}`
                           : "0/0"} lectures
                       </span>
+                    </td>
+
+                    <td className="px-4 py-4">
+                      {course.expiresAt ? (
+                        <div className={`flex items-center gap-2 ${isExpiringsoon(course.expiresAt) ? 'text-orange-600 font-medium' : 'text-gray-600'}`}>
+                          <Clock size={14} />
+                          <span className="text-sm">
+                            {formatExpirationDate(course.expiresAt)}
+                            <br />
+                            <span className="text-xs">{getDaysRemaining(course.expiresAt)} days left</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-sm">No expiration</span>
+                      )}
                     </td>
 
                     <td className="px-4 py-4 text-right">

@@ -5,6 +5,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const Enrollment = require('../models/Enrollment');
 const Lecture = require('../models/Lecture');
 const Progress = require('../models/Progress');
+const { normalizeEnrollmentTier, canViewVideo } = require('../utils/tierAccess');
 
 /** POST /:lectureId/complete — Mark a lecture as completed. */
 router.post(
@@ -24,6 +25,13 @@ router.post(
       'purchase.status': 'CAPTURED',
     });
     if (!enrollment) return res.status(403).json({ error: 'Not Enrolled' });
+
+    if (!canViewVideo(normalizeEnrollmentTier(enrollment.tier))) {
+      return res.status(403).json({
+        error: 'Lecture completion is available on Gold and Platinum plans.',
+        code: 'TIER_PROGRESS_BLOCKED',
+      });
+    }
 
     const existingProgress = await Progress.findOne({ userId, courseId: lecture.courseId })
       .select('lectureCompleted')

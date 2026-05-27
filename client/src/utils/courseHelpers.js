@@ -8,23 +8,25 @@ import humanizeDuration from 'humanize-duration';
  * @returns {number} Average rating (0–5)
  */
 export const calculateRating = (course) => {
-  if (course?.averageRating !== undefined && course?.averageRating !== null) {
-    return Number(course.averageRating) || 0;
+  if (!course) return 0;
+
+  // Prefer API fields (catalog uses `rating`, detail uses `averageRating`)
+  const direct =
+    course.averageRating ??
+    course.rating ??
+    course.stats?.averageRating;
+
+  if (direct != null && direct !== '') {
+    const n = Number(direct);
+    if (!Number.isNaN(n)) return n;
   }
 
-  if (course?.rating !== undefined && course?.rating !== null) {
-    return Number(course.rating) || 0;
+  if (course?.courseRatings?.length) {
+    const total = course.courseRatings.reduce((sum, r) => sum + (Number(r.rating) || 0), 0);
+    return total / course.courseRatings.length;
   }
 
-  if (course?.stats?.averageRating !== undefined) {
-    return course.stats.averageRating;
-  }
-
-  // Fallback: legacy courseRatings array
-  if (!course?.courseRatings?.length) return 0;
-
-  const total = course.courseRatings.reduce((sum, r) => sum + r.rating, 0);
-  return Math.floor(total / course.courseRatings.length);
+  return 0;
 };
 
 /**

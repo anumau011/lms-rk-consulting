@@ -5,6 +5,7 @@ const Lecture = require('../models/Lecture');
 const Enrollment = require('../models/Enrollment');
 const { getNoteTypeFromMime } = require('../utils/fileHelpers');
 const { generateSignedStorageFileUrl } = require('../services/bunny');
+const { canDownloadCourseNotes, isEnrollmentExpired } = require('../utils/tierAccess');
 const logger = require('../utils/logger');
 
 const TAG = 'NOTE_CTRL';
@@ -27,6 +28,11 @@ const getNotesForLecture = async (req, res) => {
   const enrollment = await findEnrollment(userId, lecture.courseId);
   if (!enrollment) return res.status(403).json({ error: 'You are not enrolled in this course' });
 
+  // Check if enrollment is expired
+  if (isEnrollmentExpired(enrollment)) {
+    return res.status(403).json({ error: 'Your enrollment has expired. Please renew to access this course.' });
+  }
+
   const notes = await Note.find({ lectureId }).sort({ timestamp: 1 });
   res.json({ success: true, notes });
 };
@@ -38,6 +44,11 @@ const getNotesForCourse = async (req, res) => {
 
   const enrollment = await findEnrollment(userId, courseId);
   if (!enrollment) return res.status(403).json({ error: 'You are not enrolled in this course' });
+
+  // Check if enrollment is expired
+  if (isEnrollmentExpired(enrollment)) {
+    return res.status(403).json({ error: 'Your enrollment has expired. Please renew to access this course.' });
+  }
 
   const notes = await Note.find({ courseId })
     .populate('lectureId', 'title')
@@ -107,8 +118,22 @@ const getNoteSignedUrl = async (req, res) => {
   const enrollment = await findEnrollment(req.user._id, note.courseId);
   if (!enrollment) return res.status(403).json({ error: 'You are not enrolled in this course' });
 
+  // Check if enrollment is expired
+  if (isEnrollmentExpired(enrollment)) {
+    return res.status(403).json({ error: 'Your enrollment has expired. Please renew to access this course.' });
+  }
+
+  // download=1 is restricted to Premium/Platinum; view-only is allowed for enrolled tiers.
+  const wantsDownload = req.query.download === '1';
+  if (wantsDownload && !canDownloadCourseNotes(enrollment.tier)) {
+    return res.status(403).json({
+      error: 'Platinum plan required to download course materials. Gold and Basic include view-only access.',
+      code: 'TIER_NOTE_DOWNLOAD_BLOCKED',
+    });
+  }
+
   const fileUrl = generateSignedStorageFileUrl(note.path, 3600);
-  res.json({ success: true, fileUrl });
+  res.json({ success: true, fileUrl, viewOnly: !wantsDownload });
 };
 
 // ── Educator-Facing Endpoints ───────────────────────────────────────────────

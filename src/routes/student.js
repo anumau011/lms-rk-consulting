@@ -40,8 +40,6 @@ router.post('/user/verify-payment', requireAuth, attachUser, asyncHandler(enroll
 
 router.get('/video/:lectureId/signed-thumbnail-url', requireAuth, attachUser, asyncHandler(videoCtrl.getSignedThumbnailUrl));
 router.get('/video/:lectureId/signed-video-url', requireAuth, attachUser, asyncHandler(videoCtrl.getSignedVideoUrl));
-router.get('/video/:lectureId/download-options', requireAuth, attachUser, asyncHandler(videoCtrl.getDownloadOptions));
-router.post('/video/:lectureId/download-url', requireAuth, attachUser, asyncHandler(videoCtrl.getDownloadUrl));
 
 // ── Student Notes ───────────────────────────────────────────────────────────
 

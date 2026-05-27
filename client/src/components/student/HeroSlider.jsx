@@ -14,9 +14,12 @@ function stripHtml(html) {
 function mapCoursesToSlides(courses) {
   return courses.map(course => {
     // Get pricing from pricingTiers
-    const standardTier = course.pricingTiers?.find(t => t.tier === 'standard');
-    const price = standardTier?.price || 0;
-    const discount = standardTier?.discount || 0;
+    const tiers = course.pricingTiers || [];
+    const displayTier =
+      tiers.find((t) => t.tier === "basic") ||
+      tiers.find((t) => t.tier === "gold" || t.tier === "standard");
+    const price = displayTier?.price || 0;
+    const discount = displayTier?.discount || 0;
     
     // Calculate final price with discount
     const finalPrice = discount > 0 ? price - (price * discount / 100) : price;

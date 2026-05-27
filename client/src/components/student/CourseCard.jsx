@@ -2,12 +2,41 @@ import React, { useContext } from "react";
 import { assets } from "../../assets/assets";
 import { AppContext } from "../../context/AppContext";
 import { Link } from "react-router-dom";
+import { getTierFinalAmount } from "../../utils/tierStyles";
+
+const PLAN_ROWS = [
+  {
+    key: "basic",
+    label: "Basic",
+    labelClass: "text-slate-600",
+    rowClass: "",
+    priceClass: "text-slate-800",
+  },
+  {
+    key: "gold",
+    label: "Gold",
+    labelClass: "text-amber-700",
+    rowClass: "",
+    priceClass: "text-amber-600",
+  },
+  {
+    key: "platinum",
+    label: "Platinum",
+    labelClass: "text-cyan-800",
+    rowClass: "bg-slate-900/5 rounded-md -mx-1 px-1 py-0.5 border border-cyan-200/60",
+    priceClass: "text-cyan-700",
+  },
+];
+
+function tierAmount(course, planKey) {
+  return getTierFinalAmount(course, planKey);
+}
 
 const CourseCard = ({ course }) => {
   const { calculateRating } = useContext(AppContext);
 
-  const standardTier = course.pricingTiers?.find(t => t.tier === 'standard');
-  const premiumTier = course.pricingTiers?.find(t => t.tier === 'premium');
+  const tiers = course.pricingTiers || [];
+  const platinumTier = tiers.find((t) => t.tier === "platinum" || t.tier === "premium");
 
   return (
     <Link
@@ -18,15 +47,14 @@ const CourseCard = ({ course }) => {
       <div className="relative">
         <img
           className="w-full aspect-video object-cover"
-          src={course.thumbnail || 'https://via.placeholder.com/400x300?text=Course+Image'}
+          src={course.thumbnail || "https://via.placeholder.com/400x300?text=Course+Image"}
           alt={course.title}
           width={400}
           height={225}
         />
-        {/* Optional premium badge overlay */}
-        {premiumTier && (
-          <div className="absolute top-2 right-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1">
-            Premium
+        {platinumTier && (
+          <div className="absolute top-2 right-2 bg-gradient-to-r from-slate-800 to-cyan-900 text-cyan-100 text-[10px] font-bold px-2 py-1 rounded-md shadow-sm border border-cyan-400/50">
+            Platinum
           </div>
         )}
       </div>
@@ -38,18 +66,14 @@ const CourseCard = ({ course }) => {
         <p className="text-gray-500 text-sm mb-2 font-medium">
           {course.instructorId?.firstName || course.instructor?.name || "Expert Educator"}
         </p>
-        
+
         <div className="flex items-center space-x-2 mb-auto pb-4">
           <p className="font-bold text-yellow-500">{Number(calculateRating(course)).toFixed(1)}</p>
           <div className="flex">
             {[...Array(5)].map((_, i) => (
               <img
                 key={i}
-                src={
-                  i < Math.floor(calculateRating(course))
-                    ? assets.star
-                    : assets.star_blank
-                }
+                src={i < Math.floor(calculateRating(course)) ? assets.star : assets.star_blank}
                 alt="star"
                 className="w-3.5 h-3.5"
               />
@@ -60,55 +84,27 @@ const CourseCard = ({ course }) => {
           <p className="text-gray-500 text-sm">{course.enrollmentCount || 0} students</p>
         </div>
 
-        {/* Pricing Section */}
-        <div className="border-t border-gray-100 pt-3 space-y-2">
-          {/* Standard Price */}
-          {standardTier && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Standard</span>
-              <div className="flex items-center gap-2">
-                {standardTier.discount > 0 ? (
-                  <>
-                    <span className="text-xs text-gray-400 line-through">
-                      ₹{standardTier.price.toLocaleString('en-IN')}
-                    </span>
-                    <span className="text-sm font-bold text-gray-900">
-                      ₹{standardTier.finalPrice.toLocaleString('en-IN')}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-sm font-bold text-gray-900">
-                    ₹{standardTier.price.toLocaleString('en-IN')}
-                  </span>
-                )}
+        <div className="border-t border-gray-100 pt-3 space-y-1.5">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Plans</p>
+          {PLAN_ROWS.map(({ key, label, labelClass, rowClass, priceClass }) => {
+            const amount = tierAmount(course, key);
+            return (
+              <div
+                key={key}
+                className={`flex items-center justify-between gap-2 ${rowClass}`}
+              >
+                <span className={`text-[11px] font-semibold uppercase tracking-wide ${labelClass}`}>
+                  {label}
+                </span>
+                <span className={`text-xs font-bold tabular-nums ${priceClass}`}>
+                  {amount != null && !Number.isNaN(amount)
+                    ? `₹${Number(amount).toLocaleString("en-IN")}`
+                    : "—"}
+                </span>
               </div>
-            </div>
-          )}
-
-          {/* Premium Price */}
-          {premiumTier && (
-            <div className="flex items-center justify-between bg-amber-50/50 rounded-md -mx-1 px-1 py-0.5">
-              <span className="text-xs font-bold text-amber-700 uppercase tracking-wider">Premium</span>
-              <div className="flex items-center gap-2">
-                {premiumTier.discount > 0 ? (
-                  <>
-                    <span className="text-xs text-amber-300 line-through">
-                      ₹{premiumTier.price.toLocaleString('en-IN')}
-                    </span>
-                    <span className="text-sm font-bold text-amber-600">
-                      ₹{premiumTier.finalPrice.toLocaleString('en-IN')}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-sm font-bold text-amber-600">
-                    ₹{premiumTier.price.toLocaleString('en-IN')}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
-
       </div>
     </Link>
   );

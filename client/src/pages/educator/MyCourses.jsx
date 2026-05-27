@@ -103,27 +103,36 @@ const MyCourses = () => {
   };
 
   const getCoursePricing = (course) => {
-    const standardTier = course.pricingTiers?.find(t => t.tier === 'standard');
-    const premiumTier = course.pricingTiers?.find(t => t.tier === 'premium');
+    const tiers = course.pricingTiers || [];
+    const basicTier = tiers.find((t) => t.tier === "basic");
+    const goldTier = tiers.find((t) => t.tier === "gold" || t.tier === "standard");
+    const platinumTier = tiers.find((t) => t.tier === "platinum" || t.tier === "premium");
 
     const calculateFinalPrice = (price, discount) => {
       if (!price || !discount) return price;
       return price - (price * discount / 100);
     };
 
+    const pack = (t) => ({
+      price: t?.price || 0,
+      finalPrice: calculateFinalPrice(t?.price || 0, t?.discount || 0),
+      discount: t?.discount || 0,
+      exists: !!t,
+    });
+
     return {
-      standard: {
-        price: standardTier?.price || 0,
-        finalPrice: calculateFinalPrice(standardTier?.price || 0, standardTier?.discount || 0),
-        discount: standardTier?.discount || 0,
-        exists: !!standardTier
-      },
-      premium: {
-        price: premiumTier?.price || 0,
-        finalPrice: calculateFinalPrice(premiumTier?.price || 0, premiumTier?.discount || 0),
-        discount: premiumTier?.discount || 0,
-        exists: !!premiumTier
-      }
+      basic: pack(basicTier),
+      gold: pack(goldTier),
+      platinum: pack(platinumTier),
+    };
+  };
+
+  const tierEnrollmentCounts = (course) => {
+    const e = course.enrollmentsByTier || {};
+    return {
+      basic: e.basic || 0,
+      gold: (e.gold || 0) + (e.standard || 0),
+      platinum: (e.platinum || 0) + (e.premium || 0),
     };
   };
 
@@ -133,15 +142,19 @@ const MyCourses = () => {
 
   const totalEarnings = courses?.reduce((acc, course) => {
     const pricing = getCoursePricing(course);
-    const enrollments = course.enrollmentsByTier || { standard: 0, premium: 0 };
-    const standardEarnings = enrollments.standard * pricing.standard.finalPrice;
-    const premiumEarnings = enrollments.premium * pricing.premium.finalPrice;
-    return acc + standardEarnings + premiumEarnings;
+    const c = tierEnrollmentCounts(course);
+    return (
+      acc +
+      c.basic * pricing.basic.finalPrice +
+      c.gold * pricing.gold.finalPrice +
+      c.platinum * pricing.platinum.finalPrice
+    );
   }, 0) || 0;
 
   const totalStudents = courses?.reduce((acc, course) => {
-    const enrollments = course.enrollmentsByTier || { standard: 0, premium: 0 };
-    return acc + enrollments.standard + enrollments.premium;
+    const c = tierEnrollmentCounts(course);
+    if (typeof course.enrollmentCount === "number") return acc + course.enrollmentCount;
+    return acc + c.basic + c.gold + c.platinum;
   }, 0) || 0;
 
   return courses ? (
@@ -242,8 +255,9 @@ const MyCourses = () => {
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Course</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Standard Tier</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Premium Tier</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Basic</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Gold</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Platinum</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Stats</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -252,12 +266,38 @@ const MyCourses = () => {
                 <tbody className="divide-y divide-gray-100">
                   {filteredCourses.map((course) => {
                     const pricing = getCoursePricing(course);
-                    const enrollments = course.enrollmentsByTier || { standard: 0, premium: 0, total: 0 };
+                    const ec = tierEnrollmentCounts(course);
 
-                    const standardEarnings = enrollments.standard * pricing.standard.finalPrice;
-                    const premiumEarnings = enrollments.premium * pricing.premium.finalPrice;
-                    const courseTotalEarnings = standardEarnings + premiumEarnings;
-                    const totalEnrollments = enrollments.standard + enrollments.premium;
+                    const basicEarnings = ec.basic * pricing.basic.finalPrice;
+                    const goldEarnings = ec.gold * pricing.gold.finalPrice;
+                    const platinumEarnings = ec.platinum * pricing.platinum.finalPrice;
+                    const courseTotalEarnings = basicEarnings + goldEarnings + platinumEarnings;
+                    const totalEnrollments = ec.basic + ec.gold + ec.platinum;
+
+                    const TierCell = ({ tierKey, count, earnings, accentClass }) =>
+                      pricing[tierKey].exists ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-semibold ${accentClass}`}>
+                              ₹{pricing[tierKey].finalPrice.toLocaleString("en-IN")}
+                            </span>
+                            {pricing[tierKey].discount > 0 && (
+                              <span className="text-xs text-gray-400 line-through">
+                                ₹{pricing[tierKey].price.toLocaleString("en-IN")}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                            <Users size={12} />
+                            <span className="font-medium">{count}</span> students
+                          </div>
+                          <div className="text-sm text-green-600 font-medium">
+                            Earned: ₹{earnings.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-sm">—</span>
+                      );
 
                     return (
                       <tr key={course._id} className="hover:bg-gray-50 transition-colors">
@@ -278,68 +318,29 @@ const MyCourses = () => {
                           </div>
                         </td>
 
-                        {/* Standard Tier */}
                         <td className="px-6 py-4">
-                          {pricing.standard.exists ? (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-gray-900">
-                                  ₹{pricing.standard.finalPrice.toLocaleString('en-IN')}
-                                </span>
-                                {pricing.standard.discount > 0 && (
-                                  <>
-                                    <span className="text-xs text-gray-400 line-through">
-                                      ₹{pricing.standard.price.toLocaleString('en-IN')}
-                                    </span>
-                                    <span className="text-xs font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
-                                      {pricing.standard.discount}% OFF
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <Users size={12} />
-                                <span className="font-medium">{enrollments.standard}</span> students
-                              </div>
-                              <div className="text-sm text-green-600 font-medium">
-                                Earned: ₹{standardEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">Not available</span>
-                          )}
+                          <TierCell
+                            tierKey="basic"
+                            count={ec.basic}
+                            earnings={basicEarnings}
+                            accentClass="text-slate-800"
+                          />
                         </td>
-
-                        {/* Premium Tier */}
                         <td className="px-6 py-4">
-                          {pricing.premium.exists ? (
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-indigo-600">
-                                  ₹{pricing.premium.finalPrice.toLocaleString('en-IN')}
-                                </span>
-                                {pricing.premium.discount > 0 && (
-                                  <>
-                                    <span className="text-xs text-gray-400 line-through">
-                                      ₹{pricing.premium.price.toLocaleString('en-IN')}
-                                    </span>
-                                    <span className="text-xs font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
-                                      {pricing.premium.discount}% OFF
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                                <Users size={12} />
-                                <span className="font-medium">{enrollments.premium}</span> students
-                              </div>
-                              <div className="text-sm text-green-600 font-medium">
-                                Earned: ₹{premiumEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">Not available</span>
-                          )}
+                          <TierCell
+                            tierKey="gold"
+                            count={ec.gold}
+                            earnings={goldEarnings}
+                            accentClass="text-amber-700"
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <TierCell
+                            tierKey="platinum"
+                            count={ec.platinum}
+                            earnings={platinumEarnings}
+                            accentClass="text-cyan-800"
+                          />
                         </td>
 
                         {/* Total Stats */}

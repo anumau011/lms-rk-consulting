@@ -1,8 +1,24 @@
 const crypto = require('crypto');
 const Course = require('../models/Course');
 const Enrollment = require('../models/Enrollment');
+const User = require('../models/User');
 const logger = require('../utils/logger');
+const {
+  sendPurchaseConfirmationEmail,
+  sendUpgradeConfirmationEmail,
+  sendAdminPurchaseAlert,
+  sendAdminUpgradeAlert,
+} = require('../services/emailService');
 const { ORDER_EXPIRY_MS, CURRENCY, VALID_TIERS } = require('../utils/constants');
+const {
+  normalizeEnrollmentTier,
+  enrollmentsByTierKey,
+  canonicalPurchaseTier,
+  normalizePricingTierName,
+  isUpgradePath,
+  normalizePricingTiersForDisplay,
+  calculateEnrollmentExpirationDate,
+} = require('../utils/tierAccess');
 const Razorpay = require('razorpay');
 
 const TAG = 'ENROLLMENT_CTRL';
@@ -41,6 +57,12 @@ function isUpgradeOrderStillValid(enrollment) {
   return Date.now() - new Date(enrollment.upgrade.initiatedAt).getTime() < ORDER_EXPIRY_MS;
 }
 
+function findPricingTier(course, tierCanonicalUpper) {
+  const key = tierCanonicalUpper.toLowerCase();
+  const tiers = normalizePricingTiersForDisplay(course.pricingTiers || []);
+  return tiers.find((t) => normalizePricingTierName(t.tier) === key);
+}
+
 // ── Controllers ─────────────────────────────────────────────────────────────
 
 /** POST /user/purchase — Initiate or resume course purchase. */
@@ -57,6 +79,8 @@ const purchaseCourse = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid planType' });
   }
 
+  const canonicalTier = canonicalPurchaseTier(normalizedPlan);
+
   const [course, existingEnrollment] = await Promise.all([
     Course.findById(courseId).lean().catch(() => null),
     Enrollment.findOne({ userId, courseId }).lean(),
@@ -67,11 +91,13 @@ const purchaseCourse = async (req, res) => {
     return res.status(409).json({ success: false, message: 'You are already enrolled in this course' });
   }
 
-  const pricingTier = course.pricingTiers?.find((t) => t.tier.trim().toUpperCase() === normalizedPlan);
-  if (!pricingTier) return res.status(400).json({ success: false, message: 'Plan not available for this course' });
+  const pricingTier = findPricingTier(course, canonicalTier);
+  if (!pricingTier) {
+    return res.status(400).json({ success: false, message: 'Plan not available for this course' });
+  }
 
   const { baseAmount, discountAmount, finalAmount } = computeAmount(pricingTier);
-  const planChanged = existingEnrollment?.purchase?.purchasedTier !== normalizedPlan;
+  const planChanged = existingEnrollment?.purchase?.purchasedTier !== canonicalTier;
   const priceChanged = existingEnrollment?.purchase?.amountPaid !== finalAmount;
 
   let enrollment;
@@ -81,9 +107,9 @@ const purchaseCourse = async (req, res) => {
       {
         $setOnInsert: { userId, courseId },
         $set: {
-          tier: normalizedPlan,
+          tier: canonicalTier,
           currency: CURRENCY,
-          'purchase.purchasedTier': normalizedPlan,
+          'purchase.purchasedTier': canonicalTier,
           'purchase.baseAmount': baseAmount,
           'purchase.discountApplied': discountAmount,
           'purchase.amountPaid': finalAmount,
@@ -100,7 +126,6 @@ const purchaseCourse = async (req, res) => {
     throw err;
   }
 
-  // Reuse valid pending order if nothing changed
   if (isPurchaseOrderStillValid(enrollment) && !planChanged && !priceChanged) {
     return res.json({
       success: true,
@@ -112,7 +137,6 @@ const purchaseCourse = async (req, res) => {
     });
   }
 
-  // Create fresh Razorpay order
   let razorpayOrder;
   try {
     razorpayOrder = await getRazorpay().orders.create({
@@ -125,7 +149,6 @@ const purchaseCourse = async (req, res) => {
     return res.status(502).json({ success: false, message: 'Payment gateway error. Please try again.' });
   }
 
-  // Persist with optimistic concurrency
   const staleOrderId = enrollment.purchase.razorpayOrderId ?? null;
   const orderFilter = staleOrderId
     ? { _id: enrollment._id, 'purchase.razorpayOrderId': staleOrderId }
@@ -163,20 +186,29 @@ const purchaseCourse = async (req, res) => {
   });
 };
 
-/** POST /user/upgrade — Upgrade from STANDARD to PREMIUM. */
-const upgradeToPremium = async (req, res) => {
+/** POST /user/upgrade — Upgrade to a higher tier (e.g. BASIC→GOLD, GOLD→PLATINUM). */
+const upgradeToTier = async (req, res) => {
+  const targetRaw = req.body.targetTier ?? req.body.planType ?? 'PREMIUM';
   const { courseId } = req.body;
   const userId = req.user._id;
 
   if (!courseId) return res.status(400).json({ success: false, message: 'courseId is required' });
+
+  const normalizedTarget = String(targetRaw).trim().toUpperCase();
+  const targetCanonical = canonicalPurchaseTier(normalizedTarget);
 
   const enrollment = await Enrollment.findOne({ userId, courseId });
   if (!enrollment) return res.status(404).json({ success: false, message: 'Enrollment not found' });
   if (enrollment.purchase.status !== 'CAPTURED') {
     return res.status(400).json({ success: false, message: 'Complete your initial purchase first' });
   }
-  if (enrollment.tier === 'PREMIUM') {
-    return res.status(409).json({ success: false, message: 'Already on PREMIUM tier' });
+
+  const current = normalizeEnrollmentTier(enrollment.tier);
+  if (current === targetCanonical) {
+    return res.status(409).json({ success: false, message: `Already on ${targetCanonical} tier` });
+  }
+  if (!isUpgradePath(current, targetCanonical)) {
+    return res.status(400).json({ success: false, message: 'Invalid upgrade path' });
   }
 
   if (isUpgradeOrderStillValid(enrollment)) {
@@ -193,11 +225,15 @@ const upgradeToPremium = async (req, res) => {
   const course = await Course.findById(courseId).lean();
   if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
 
-  const premiumTier = course.pricingTiers?.find((t) => t.tier.trim().toUpperCase() === 'PREMIUM');
-  if (!premiumTier) return res.status(400).json({ success: false, message: 'PREMIUM tier not available for this course' });
+  const currentPricing = findPricingTier(course, current);
+  const targetPricing = findPricingTier(course, targetCanonical);
+  if (!currentPricing || !targetPricing) {
+    return res.status(400).json({ success: false, message: 'Tier pricing not available for this course' });
+  }
 
-  const { baseAmount, finalAmount: premiumFinalAmount } = computeAmount(premiumTier);
-  const deltaAmount = premiumFinalAmount - enrollment.purchase.amountPaid;
+  const { finalAmount: currentFinal } = computeAmount(currentPricing);
+  const { baseAmount, finalAmount: targetFinal } = computeAmount(targetPricing);
+  const deltaAmount = targetFinal - currentFinal;
 
   if (deltaAmount <= 0) return res.status(400).json({ success: false, message: 'Invalid upgrade amount' });
 
@@ -219,12 +255,12 @@ const upgradeToPremium = async (req, res) => {
     : { _id: enrollment._id, 'upgrade.razorpayOrderId': { $exists: false } };
 
   const updateResult = await Enrollment.updateOne(
-    { ...upgradeFilter, tier: 'STANDARD' },
+    { ...upgradeFilter, tier: enrollment.tier },
     {
       $set: {
         upgrade: {
-          fromTier: 'STANDARD',
-          toTier: 'PREMIUM',
+          fromTier: enrollment.tier,
+          toTier: targetCanonical,
           razorpayOrderId: razorpayOrder.id,
           baseAmount,
           discountApplied: 0,
@@ -238,8 +274,8 @@ const upgradeToPremium = async (req, res) => {
 
   if (updateResult.modifiedCount === 0) {
     const fresh = await Enrollment.findById(enrollment._id).select('tier upgrade currency').lean();
-    if (fresh.tier === 'PREMIUM') {
-      return res.status(409).json({ success: false, message: 'Already on PREMIUM tier' });
+    if (normalizeEnrollmentTier(fresh.tier) === targetCanonical) {
+      return res.status(409).json({ success: false, message: `Already on ${targetCanonical} tier` });
     }
     return res.json({
       success: true,
@@ -291,31 +327,105 @@ const verifyPayment = async (req, res) => {
     return res.json({ success: true, alreadyCaptured: true, tier: enrollment.tier, message: 'Payment already confirmed' });
   }
 
-  // Webhook hasn't fired yet — optimistic capture
   if (type === 'purchase') {
+    // Fetch course to get enrollment expiration settings
+    const course = await Course.findById(enrollment.courseId).select('enrollmentExpirationMonths title').lean();
+    const expirationMonths = course?.enrollmentExpirationMonths || 12;
+    const expiresAt = calculateEnrollmentExpirationDate(new Date(), expirationMonths);
+
     const result = await Enrollment.updateOne(
       { 'purchase.razorpayOrderId': razorpayOrderId, 'purchase.status': 'PENDING' },
-      { $set: { 'purchase.status': 'CAPTURED', 'purchase.razorpayPaymentId': razorpayPaymentId, 'purchase.razorpaySignature': razorpaySignature, 'purchase.capturedAt': new Date() } }
+      {
+        $set: {
+          'purchase.status': 'CAPTURED',
+          'purchase.razorpayPaymentId': razorpayPaymentId,
+          'purchase.razorpaySignature': razorpaySignature,
+          'purchase.capturedAt': new Date(),
+          'expiresAt': expiresAt,
+        },
+      }
     );
     if (result.modifiedCount > 0) {
+      const tierKey = enrollmentsByTierKey(enrollment.tier);
       await Course.findByIdAndUpdate(enrollment.courseId, {
         $inc: {
           enrollmentCount: 1,
-          [`enrollmentsByTier.${enrollment.tier.toLowerCase()}`]: 1
-        }
+          [`enrollmentsByTier.${tierKey}`]: 1,
+        },
       });
+
+      // Send purchase confirmation emails (non-blocking)
+      User.findById(enrollment.userId).select('email firstName').lean().then((student) => {
+        if (!student) return;
+        const emailData = {
+          to: student.email,
+          firstName: student.firstName,
+          courseName: course?.title || 'the course',
+          tier: enrollment.tier,
+          amountPaid: enrollment.purchase.amountPaid,
+          paymentId: razorpayPaymentId,
+          expiresAt,
+        };
+        Promise.allSettled([
+          sendPurchaseConfirmationEmail(emailData),
+          sendAdminPurchaseAlert({ studentEmail: student.email, firstName: student.firstName, ...emailData }),
+        ]).then((results) => {
+          results.forEach((r, i) => {
+            if (r.status === 'rejected') logger.error(TAG, `Purchase email [${i}] failed:`, r.reason?.message);
+          });
+        });
+      }).catch((err) => logger.error(TAG, 'Failed to fetch student for email:', err.message));
     }
   } else {
+    const newTier = normalizeEnrollmentTier(enrollment.upgrade.toTier);
+    const fromKey = enrollmentsByTierKey(enrollment.tier);
+    const toKey = enrollmentsByTierKey(newTier);
+
     const result = await Enrollment.updateOne(
       { 'upgrade.razorpayOrderId': razorpayOrderId, 'upgrade.status': 'PENDING' },
-      { $set: { tier: 'PREMIUM', 'upgrade.status': 'CAPTURED', 'upgrade.razorpayPaymentId': razorpayPaymentId, 'upgrade.razorpaySignature': razorpaySignature, 'upgrade.capturedAt': new Date() } }
+      {
+        $set: {
+          tier: newTier,
+          'upgrade.status': 'CAPTURED',
+          'upgrade.razorpayPaymentId': razorpayPaymentId,
+          'upgrade.razorpaySignature': razorpaySignature,
+          'upgrade.capturedAt': new Date(),
+        },
+      }
     );
     if (result.modifiedCount > 0) {
       await Course.findByIdAndUpdate(enrollment.courseId, {
         $inc: {
-          'enrollmentsByTier.standard': -1,
-          'enrollmentsByTier.premium': 1
-        }
+          [`enrollmentsByTier.${fromKey}`]: -1,
+          [`enrollmentsByTier.${toKey}`]: 1,
+        },
+      });
+
+      // Send upgrade confirmation emails (non-blocking)
+      Promise.allSettled([
+        Course.findById(enrollment.courseId).select('title').lean(),
+        User.findById(enrollment.userId).select('email firstName').lean(),
+      ]).then(([courseRes, userRes]) => {
+        const course = courseRes.status === 'fulfilled' ? courseRes.value : null;
+        const student = userRes.status === 'fulfilled' ? userRes.value : null;
+        if (!student) return;
+        const emailData = {
+          to: student.email,
+          firstName: student.firstName,
+          courseName: course?.title || 'the course',
+          fromTier: enrollment.tier,
+          toTier: newTier,
+          amountPaid: enrollment.upgrade?.amountCharged || 0,
+          paymentId: razorpayPaymentId,
+        };
+        Promise.allSettled([
+          sendUpgradeConfirmationEmail(emailData),
+          sendAdminUpgradeAlert({ studentEmail: student.email, firstName: student.firstName, ...emailData }),
+        ]).then((results) => {
+          results.forEach((r, i) => {
+            if (r.status === 'rejected') logger.error(TAG, `Upgrade email [${i}] failed:`, r.reason?.message);
+          });
+        });
       });
     }
   }
@@ -324,4 +434,4 @@ const verifyPayment = async (req, res) => {
   return res.json({ success: true, alreadyCaptured: false, tier: updated.tier, message: 'Payment verified successfully' });
 };
 
-module.exports = { purchaseCourse, upgradeToPremium, verifyPayment };
+module.exports = { purchaseCourse, upgradeToTier, upgradeToPremium: upgradeToTier, verifyPayment };

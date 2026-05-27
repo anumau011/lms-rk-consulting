@@ -1,5 +1,5 @@
-import React, { useState, useContext } from "react";
-import { useSignUp } from "@clerk/clerk-react";
+import React, { useState, useContext, useEffect } from "react";
+import { useSignUp, useUser } from "@clerk/clerk-react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Eye, EyeOff, Mail, Lock, User, ArrowRight, ArrowLeft,
@@ -68,8 +68,18 @@ const StepIndicator = ({ step }) => (
 
 const SignUpPage = () => {
   const { signUp, setActive, isLoaded } = useSignUp();
+  const { user, isLoaded: userLoaded } = useUser();
   const { backendUrl, getToken } = useContext(AppContext);
   const navigate = useNavigate();
+
+  // Redirect to home only if the user is already logged in BEFORE starting signup.
+  // Do NOT redirect during the signup flow (steps 2/3) — the session becomes
+  // active after OTP, but we still need to show the profile step.
+  useEffect(() => {
+    if (userLoaded && user && step === 1) {
+      navigate("/");
+    }
+  }, [userLoaded, user, navigate]);
 
   // Step: 1 = credentials, 2 = OTP verification, 3 = profile info
   const [step, setStep] = useState(1);
@@ -91,6 +101,8 @@ const SignUpPage = () => {
   const [dob, setDob] = useState("");
   const [education, setEducation] = useState("");
   const [gender, setGender] = useState("");
+  const [country, setCountry] = useState("");
+  const [profession, setProfession] = useState("");
 
   // ── Helper: wait for a valid Clerk token (retries up to 5x) ──────────────
   const waitForToken = async () => {
@@ -181,7 +193,7 @@ const SignUpPage = () => {
 
       await axios.post(
         `${backendUrl}/api/user/complete-profile`,
-        { phone, dateOfBirth: dob || null, education, gender },
+        { phone, dateOfBirth: dob || null, education, gender, country, profession },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -434,6 +446,28 @@ const SignUpPage = () => {
                       </option>
                     ))}
                   </select>
+                </InputField>
+
+                {/* Country */}
+                <InputField label="Country">
+                  <input
+                    type="text"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder="e.g. India"
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm bg-gray-50 focus:bg-white"
+                  />
+                </InputField>
+
+                {/* Profession */}
+                <InputField label="Profession">
+                  <input
+                    type="text"
+                    value={profession}
+                    onChange={(e) => setProfession(e.target.value)}
+                    placeholder="e.g. Software Engineer"
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-sm bg-gray-50 focus:bg-white"
+                  />
                 </InputField>
 
                 {/* Gender */}
