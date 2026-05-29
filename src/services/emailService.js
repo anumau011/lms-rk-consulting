@@ -1,14 +1,25 @@
+// EMAIL SAFE VERSION
+// Gmail / Outlook Compatible
+// No Flexbox
+// No CSS Grid
+
+const path = require('path');
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
+const LOGO_PATH = path.join(__dirname, '../assets/logo.png');
+
 const TAG = 'EMAIL_SERVICE';
 
-// ── Transporter ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// TRANSPORTER
+// ─────────────────────────────────────────────────────────────
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.hostinger.com',
   port: 587,
   secure: false,
+
   auth: {
     user: process.env.SMTP_USER || 'info@rkconsulting.org.in',
     pass: process.env.SMTP_PASS || '[J7Tvm!8V',
@@ -16,303 +27,864 @@ const transporter = nodemailer.createTransport({
 });
 
 const FROM_ADDRESS = '"RK Consulting" <info@rkconsulting.org.in>';
-const ADMIN_EMAIL  = process.env.ADMIN_EMAIL || 'info@rkconsulting.org.in';
-const BRAND_COLOR  = '#4f46e5'; // indigo-600
-const BRAND_NAME   = 'RK Consulting LMS';
-const BRAND_LOGO   = 'https://rkconsulting.org.in/logo.png'; // update if needed
 
-// ── Base HTML layout ─────────────────────────────────────────────────────────
+const ADMIN_EMAIL =
+  process.env.ADMIN_EMAIL || 'info@rkconsulting.org.in';
+
+const BRAND_COLOR = '#4f46e5';
+
+const BRAND_NAME = 'RK Consulting LMS';
+
+// ─────────────────────────────────────────────────────────────
+// BASE TEMPLATE
+// ─────────────────────────────────────────────────────────────
 
 function baseTemplate(title, bodyHtml) {
-  return `<!DOCTYPE html>
+
+  return `
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>${title}</title>
-  <style>
-    body { margin: 0; padding: 0; background: #f4f4f7; font-family: 'Segoe UI', Arial, sans-serif; }
-    .wrapper { width: 100%; background: #f4f4f7; padding: 40px 0; }
-    .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-    .header { background: ${BRAND_COLOR}; padding: 32px 40px; text-align: center; }
-    .header h1 { color: #fff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
-    .header p  { color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 13px; }
-    .body { padding: 36px 40px; }
-    .body h2 { font-size: 20px; font-weight: 700; color: #1a1a2e; margin: 0 0 8px; }
-    .body p  { font-size: 15px; color: #555; line-height: 1.6; margin: 0 0 16px; }
-    .info-box { background: #f8f7ff; border: 1px solid #e0ddff; border-radius: 8px; padding: 18px 22px; margin: 20px 0; }
-    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #ede9fe; }
-    .info-row:last-child { border-bottom: none; }
-    .info-label { font-size: 13px; color: #777; }
-    .info-value { font-size: 13px; font-weight: 600; color: #1a1a2e; }
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .badge-basic    { background: #dbeafe; color: #1d4ed8; }
-    .badge-gold     { background: #fef3c7; color: #b45309; }
-    .badge-platinum { background: #ede9fe; color: #6d28d9; }
-    .btn { display: inline-block; background: ${BRAND_COLOR}; color: #fff; text-decoration: none; padding: 13px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; margin-top: 8px; }
-    .footer { background: #f4f4f7; text-align: center; padding: 24px 40px; }
-    .footer p { font-size: 12px; color: #999; margin: 0; }
-    .divider { height: 1px; background: #f0f0f0; margin: 20px 0; }
-    .amount { font-size: 28px; font-weight: 800; color: ${BRAND_COLOR}; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>${title}</title>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="card">
-      <div class="header">
-        <h1>🎓 ${BRAND_NAME}</h1>
-        <p>${title}</p>
-      </div>
-      <div class="body">
-        ${bodyHtml}
-      </div>
-      <div class="footer">
-        <p>© ${new Date().getFullYear()} ${BRAND_NAME}. All rights reserved.</p>
-        <p style="margin-top:4px;">You received this email because you have an account with us.</p>
-      </div>
-    </div>
-  </div>
+
+<body
+  style="
+    margin:0;
+    padding:0;
+    background:#f4f4f7;
+    font-family:Arial,sans-serif;
+  "
+>
+
+<table
+  width="100%"
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+  bgcolor="#f4f4f7"
+>
+
+<tr>
+<td align="center" style="padding:40px 12px;">
+
+<table
+  width="560"
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+  style="
+    background:#ffffff;
+    border-radius:12px;
+    overflow:hidden;
+  "
+>
+
+<!-- HEADER -->
+<tr>
+
+<td
+  align="center"
+  style="
+    background:${BRAND_COLOR};
+    padding:36px 24px;
+  "
+>
+
+<img
+  src="cid:logo"
+  alt="${BRAND_NAME}"
+  width="140"
+  style="
+    display:block;
+    margin:0 auto 12px;
+    max-width:140px;
+  "
+/>
+
+<div
+  style="
+    color:rgba(255,255,255,0.85);
+    font-size:14px;
+    margin-top:10px;
+  "
+>
+${title}
+</div>
+
+</td>
+
+</tr>
+
+<!-- BODY -->
+<tr>
+
+<td style="padding:40px 32px;">
+${bodyHtml}
+</td>
+
+</tr>
+
+<!-- FOOTER -->
+<tr>
+
+<td
+  align="center"
+  style="
+    background:#f4f4f7;
+    padding:24px;
+    color:#999999;
+    font-size:12px;
+  "
+>
+
+<div>
+© ${new Date().getFullYear()}
+${BRAND_NAME}.
+All rights reserved.
+</div>
+
+<div style="margin-top:6px;">
+You received this email because you have an account with us.
+</div>
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+</tr>
+
+</table>
+
 </body>
-</html>`;
+</html>
+`;
 }
 
-// ── Tier badge helper ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// TIER BADGE
+// ─────────────────────────────────────────────────────────────
 
 function tierBadge(tier = '') {
+
   const key = tier.toLowerCase();
-  return `<span class="badge badge-${key}">${tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase()}</span>`;
+
+  const styles = {
+    basic: {
+      bg: '#dbeafe',
+      color: '#1d4ed8',
+    },
+
+    gold: {
+      bg: '#fef3c7',
+      color: '#b45309',
+    },
+
+    platinum: {
+      bg: '#ede9fe',
+      color: '#6d28d9',
+    },
+  };
+
+  const s = styles[key] || styles.basic;
+
+  return `
+<span
+  style="
+    display:inline-block;
+    padding:6px 14px;
+    border-radius:20px;
+    background:${s.bg};
+    color:${s.color};
+    font-size:12px;
+    font-weight:bold;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+  "
+>
+${tier}
+</span>
+`;
 }
 
-// ── Core send helper ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// INFO ROW
+// ─────────────────────────────────────────────────────────────
+
+function infoRow(label, value, border = true) {
+
+  return `
+<tr>
+
+<td
+  style="
+    padding:12px 0;
+    font-size:14px;
+    color:#777777;
+    ${border ? 'border-bottom:1px solid #ede9fe;' : ''}
+  "
+>
+${label}
+</td>
+
+<td
+  align="right"
+  style="
+    padding:12px 0;
+    font-size:14px;
+    font-weight:600;
+    color:#111827;
+    ${border ? 'border-bottom:1px solid #ede9fe;' : ''}
+  "
+>
+${value}
+</td>
+
+</tr>
+`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// INFO BOX
+// ─────────────────────────────────────────────────────────────
+
+function infoBox(rows) {
+
+  return `
+<div
+  style="
+    background:#f8f7ff;
+    border:1px solid #e0ddff;
+    border-radius:8px;
+    padding:18px;
+    margin:24px 0;
+  "
+>
+
+<table
+  width="100%"
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+>
+${rows}
+</table>
+
+</div>
+`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// BUTTON
+// ─────────────────────────────────────────────────────────────
+
+function button(text, link) {
+
+  return `
+<table
+  cellpadding="0"
+  cellspacing="0"
+  border="0"
+  style="margin-top:24px;"
+>
+
+<tr>
+
+<td
+  align="center"
+  bgcolor="${BRAND_COLOR}"
+  style="border-radius:8px;"
+>
+
+<a
+  href="${link}"
+  style="
+    display:inline-block;
+    padding:14px 28px;
+    color:#ffffff;
+    font-size:15px;
+    font-weight:bold;
+    text-decoration:none;
+  "
+>
+${text}
+</a>
+
+</td>
+
+</tr>
+
+</table>
+`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// SEND HELPER
+// ─────────────────────────────────────────────────────────────
 
 async function send({ to, subject, html, bcc }) {
+
   try {
+
     const info = await transporter.sendMail({
       from: FROM_ADDRESS,
       to,
       bcc,
       subject,
       html,
+      attachments: [
+        {
+          filename: 'logo.png',
+          path: LOGO_PATH,
+          cid: 'logo',
+          contentType: 'image/png',
+        },
+      ],
     });
-    logger.info(TAG, `Email sent → ${to} | subject: "${subject}" | msgId: ${info.messageId}`);
-    return { success: true };
+
+    logger.info(
+      TAG,
+      `Email sent → ${to} | subject: "${subject}"`
+    );
+
+    return {
+      success: true,
+    };
+
   } catch (err) {
-    logger.error(TAG, `Failed to send email → ${to} | ${err.message}`);
-    return { success: false, error: err.message };
+
+    logger.error(
+      TAG,
+      `Failed to send email → ${to} | ${err.message}`
+    );
+
+    return {
+      success: false,
+      error: err.message,
+    };
   }
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 1.  WELCOME / REGISTRATION EMAIL (Student)
-// ════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// 1. WELCOME EMAIL
+// ─────────────────────────────────────────────────────────────
 
-async function sendWelcomeEmail({ to, firstName }) {
-  const name = firstName || 'there';
-  const html = baseTemplate('Welcome to RK Consulting LMS', `
-    <h2>Welcome, ${name}! 👋</h2>
-    <p>We're thrilled to have you join the <strong>${BRAND_NAME}</strong> community. Your account has been created successfully and you're all set to start learning.</p>
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Email</span>
-        <span class="info-value">${to}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Account Status</span>
-        <span class="info-value" style="color:#16a34a;">✓ Active</span>
-      </div>
-    </div>
-    <p>Explore our courses and start your learning journey today. If you have any questions, feel free to reply to this email.</p>
-    <a href="https://rkconsulting.org.in/courses" class="btn">Browse Courses →</a>
-  `);
+async function sendWelcomeEmail({
+  to,
+  firstName,
+}) {
 
-  return send({ to, subject: `Welcome to ${BRAND_NAME}! 🎓`, html });
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// 2.  PURCHASE CONFIRMATION EMAIL (Student)
-// ════════════════════════════════════════════════════════════════════════════
-
-async function sendPurchaseConfirmationEmail({ to, firstName, courseName, tier, amountPaid, paymentId, expiresAt }) {
   const name = firstName || 'Student';
-  const formattedAmount = Number(amountPaid).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-  const formattedExpiry = expiresAt ? new Date(expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Lifetime';
 
-  const html = baseTemplate('Purchase Confirmation', `
-    <h2>Payment Successful! 🎉</h2>
-    <p>Hi <strong>${name}</strong>, your enrollment in <strong>${courseName}</strong> is confirmed. Happy learning!</p>
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Course</span>
-        <span class="info-value">${courseName}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Plan</span>
-        <span class="info-value">${tierBadge(tier)}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Amount Paid</span>
-        <span class="info-value">₹${formattedAmount}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Payment ID</span>
-        <span class="info-value" style="font-family:monospace;font-size:12px;">${paymentId}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Access Until</span>
-        <span class="info-value">${formattedExpiry}</span>
-      </div>
-    </div>
-    <a href="https://rkconsulting.org.in/my-courses" class="btn">Start Learning →</a>
-    <div class="divider"></div>
-    <p style="font-size:13px;color:#888;">Keep this email as your payment receipt. For any billing questions, please contact us.</p>
-  `);
+  const html = baseTemplate(
+    'Welcome to RK Consulting LMS',
 
-  return send({ to, subject: `✅ Enrollment Confirmed – ${courseName}`, html });
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+Welcome, ${name}! 👋
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+We're thrilled to have you join
+<strong>${BRAND_NAME}</strong>.
+</p>
+
+${infoBox(
+
+  infoRow('Email', to) +
+
+  infoRow(
+    'Account Status',
+    '<span style="color:#16a34a;">✓ Active</span>',
+    false
+  )
+
+)}
+
+${button(
+  'Browse Courses →',
+  'https://rkconsulting.org.in/courses'
+)}
+`
+  );
+
+  return send({
+    to,
+    subject: `Welcome to ${BRAND_NAME}! 🎓`,
+    html,
+  });
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 3.  TIER UPGRADE CONFIRMATION EMAIL (Student)
-// ════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// 2. PURCHASE EMAIL
+// ─────────────────────────────────────────────────────────────
 
-async function sendUpgradeConfirmationEmail({ to, firstName, courseName, fromTier, toTier, amountPaid, paymentId }) {
+async function sendPurchaseConfirmationEmail({
+
+  to,
+  firstName,
+  courseName,
+  tier,
+  amountPaid,
+  paymentId,
+  expiresAt,
+
+}) {
+
   const name = firstName || 'Student';
-  const formattedAmount = Number(amountPaid).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
-  const html = baseTemplate('Tier Upgrade Confirmed', `
-    <h2>Upgrade Successful! 🚀</h2>
-    <p>Hi <strong>${name}</strong>, you've successfully upgraded your access for <strong>${courseName}</strong>.</p>
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Course</span>
-        <span class="info-value">${courseName}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Upgraded From</span>
-        <span class="info-value">${tierBadge(fromTier)}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Upgraded To</span>
-        <span class="info-value">${tierBadge(toTier)}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Amount Charged</span>
-        <span class="info-value">₹${formattedAmount}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Payment ID</span>
-        <span class="info-value" style="font-family:monospace;font-size:12px;">${paymentId}</span>
-      </div>
-    </div>
-    <a href="https://rkconsulting.org.in/my-courses" class="btn">Access Your Content →</a>
-  `);
+  const formattedAmount =
+    Number(amountPaid).toLocaleString(
+      'en-IN',
+      {
+        maximumFractionDigits: 2,
+      }
+    );
 
-  return send({ to, subject: `🚀 Upgrade Confirmed – ${courseName} (${toTier})`, html });
+  const formattedExpiry = expiresAt
+    ? new Date(expiresAt).toLocaleDateString(
+        'en-IN',
+        {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }
+      )
+    : 'Lifetime';
+
+  const html = baseTemplate(
+
+    'Purchase Confirmation',
+
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+Payment Successful! 🎉
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+Hi <strong>${name}</strong>,
+your enrollment in
+<strong>${courseName}</strong>
+is confirmed.
+</p>
+
+${infoBox(
+
+  infoRow('Course', courseName) +
+
+  infoRow('Plan', tierBadge(tier)) +
+
+  infoRow(
+    'Amount Paid',
+    `₹${formattedAmount}`
+  ) +
+
+  infoRow(
+    'Payment ID',
+    `<span style="font-family:monospace;font-size:12px;">${paymentId}</span>`
+  ) +
+
+  infoRow(
+    'Access Until',
+    formattedExpiry,
+    false
+  )
+
+)}
+
+${button(
+  'Start Learning →',
+  'https://rkconsulting.org.in/my-courses'
+)}
+`
+  );
+
+  return send({
+    to,
+    subject: `✅ Enrollment Confirmed – ${courseName}`,
+    html,
+  });
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 4.  ADMIN NOTIFICATION – New Registration
-// ════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// 3. UPGRADE EMAIL
+// ─────────────────────────────────────────────────────────────
 
-async function sendAdminRegistrationAlert({ studentEmail, firstName, lastName }) {
-  const html = baseTemplate('[Admin] New Student Registration', `
-    <h2>New Student Registered 👤</h2>
-    <p>A new user has just created an account on the platform.</p>
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Name</span>
-        <span class="info-value">${[firstName, lastName].filter(Boolean).join(' ') || '—'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Email</span>
-        <span class="info-value">${studentEmail}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Registered At</span>
-        <span class="info-value">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</span>
-      </div>
-    </div>
-  `);
+async function sendUpgradeConfirmationEmail({
 
-  return send({ to: ADMIN_EMAIL, subject: `[Admin] New Registration – ${studentEmail}`, html });
+  to,
+  firstName,
+  courseName,
+  fromTier,
+  toTier,
+  amountPaid,
+  paymentId,
+
+}) {
+
+  const name = firstName || 'Student';
+
+  const formattedAmount =
+    Number(amountPaid).toLocaleString(
+      'en-IN',
+      {
+        maximumFractionDigits: 2,
+      }
+    );
+
+  const html = baseTemplate(
+
+    'Tier Upgrade Confirmed',
+
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+Upgrade Successful! 🚀
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+Hi <strong>${name}</strong>,
+you've successfully upgraded your access for
+<strong>${courseName}</strong>.
+</p>
+
+${infoBox(
+
+  infoRow('Course', courseName) +
+
+  infoRow(
+    'Upgraded From',
+    tierBadge(fromTier)
+  ) +
+
+  infoRow(
+    'Upgraded To',
+    tierBadge(toTier)
+  ) +
+
+  infoRow(
+    'Amount Charged',
+    `₹${formattedAmount}`
+  ) +
+
+  infoRow(
+    'Payment ID',
+    `<span style="font-family:monospace;font-size:12px;">${paymentId}</span>`,
+    false
+  )
+
+)}
+
+${button(
+  'Access Your Content →',
+  'https://rkconsulting.org.in/my-courses'
+)}
+`
+  );
+
+  return send({
+    to,
+    subject: `🚀 Upgrade Confirmed - ${courseName} (${toTier})`,
+    html,
+  });
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 5.  ADMIN NOTIFICATION – New Purchase
-// ════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// 4. ADMIN REGISTRATION ALERT
+// ─────────────────────────────────────────────────────────────
 
-async function sendAdminPurchaseAlert({ studentEmail, firstName, courseName, tier, amountPaid, paymentId }) {
-  const formattedAmount = Number(amountPaid).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+async function sendAdminRegistrationAlert({
 
-  const html = baseTemplate('[Admin] New Course Purchase', `
-    <h2>New Purchase Received 💰</h2>
-    <p>A student has just completed a course purchase.</p>
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Student</span>
-        <span class="info-value">${firstName || ''} (${studentEmail})</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Course</span>
-        <span class="info-value">${courseName}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Plan</span>
-        <span class="info-value">${tierBadge(tier)}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Amount</span>
-        <span class="info-value" style="color:#16a34a;font-weight:700;">₹${formattedAmount}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Payment ID</span>
-        <span class="info-value" style="font-family:monospace;font-size:12px;">${paymentId}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Date & Time</span>
-        <span class="info-value">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</span>
-      </div>
-    </div>
-  `);
+  studentEmail,
+  firstName,
+  lastName,
 
-  return send({ to: ADMIN_EMAIL, subject: `[Admin] New Purchase – ₹${formattedAmount} – ${studentEmail}`, html });
+}) {
+
+  const html = baseTemplate(
+
+    '[Admin] New Student Registration',
+
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+New Student Registered 👤
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+A new student has created an account.
+</p>
+
+${infoBox(
+
+  infoRow(
+    'Name',
+    [firstName, lastName]
+      .filter(Boolean)
+      .join(' ') || '—'
+  ) +
+
+  infoRow(
+    'Email',
+    studentEmail
+  ) +
+
+  infoRow(
+    'Registered At',
+    `${new Date().toLocaleString(
+      'en-IN',
+      {
+        timeZone: 'Asia/Kolkata',
+      }
+    )} IST`,
+    false
+  )
+
+)}
+
+`
+  );
+
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `[Admin] New Registration – ${studentEmail}`,
+    html,
+  });
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// 6.  ADMIN NOTIFICATION – Tier Upgrade
-// ════════════════════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// 5. ADMIN PURCHASE ALERT
+// ─────────────────────────────────────────────────────────────
 
-async function sendAdminUpgradeAlert({ studentEmail, firstName, courseName, fromTier, toTier, amountPaid, paymentId }) {
-  const formattedAmount = Number(amountPaid).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+async function sendAdminPurchaseAlert({
 
-  const html = baseTemplate('[Admin] Tier Upgrade', `
-    <h2>Tier Upgrade Completed ⬆️</h2>
-    <p>A student has upgraded their course tier.</p>
-    <div class="info-box">
-      <div class="info-row">
-        <span class="info-label">Student</span>
-        <span class="info-value">${firstName || ''} (${studentEmail})</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Course</span>
-        <span class="info-value">${courseName}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">From → To</span>
-        <span class="info-value">${tierBadge(fromTier)} → ${tierBadge(toTier)}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Amount</span>
-        <span class="info-value" style="color:#16a34a;font-weight:700;">₹${formattedAmount}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Payment ID</span>
-        <span class="info-value" style="font-family:monospace;font-size:12px;">${paymentId}</span>
-      </div>
-    </div>
-  `);
+  studentEmail,
+  firstName,
+  courseName,
+  tier,
+  amountPaid,
+  paymentId,
 
-  return send({ to: ADMIN_EMAIL, subject: `[Admin] Upgrade – ${fromTier}→${toTier} – ${studentEmail}`, html });
+}) {
+
+  const formattedAmount =
+    Number(amountPaid).toLocaleString(
+      'en-IN',
+      {
+        maximumFractionDigits: 2,
+      }
+    );
+
+  const html = baseTemplate(
+
+    '[Admin] New Course Purchase',
+
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+New Purchase Received 💰
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+A student has completed a course purchase.
+</p>
+
+${infoBox(
+
+  infoRow(
+    'Student',
+    `${firstName || ''} (${studentEmail})`
+  ) +
+
+  infoRow(
+    'Course',
+    courseName
+  ) +
+
+  infoRow(
+    'Plan',
+    tierBadge(tier)
+  ) +
+
+  infoRow(
+    'Amount',
+    `₹${formattedAmount}`
+  ) +
+
+  infoRow(
+    'Payment ID',
+    `<span style="font-family:monospace;font-size:12px;">${paymentId}</span>`,
+    false
+  )
+
+)}
+
+`
+  );
+
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `[Admin] New Purchase – ₹${formattedAmount}`,
+    html,
+  });
 }
+
+// ─────────────────────────────────────────────────────────────
+// 6. ADMIN UPGRADE ALERT
+// ─────────────────────────────────────────────────────────────
+
+async function sendAdminUpgradeAlert({
+
+  studentEmail,
+  firstName,
+  courseName,
+  fromTier,
+  toTier,
+  amountPaid,
+  paymentId,
+
+}) {
+
+  const formattedAmount =
+    Number(amountPaid).toLocaleString(
+      'en-IN',
+      {
+        maximumFractionDigits: 2,
+      }
+    );
+
+  const html = baseTemplate(
+
+    '[Admin] Tier Upgrade',
+
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+Tier Upgrade Completed ⬆️
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+A student upgraded their course tier.
+</p>
+
+${infoBox(
+
+  infoRow(
+    'Student',
+    `${firstName || ''} (${studentEmail})`
+  ) +
+
+  infoRow(
+    'Course',
+    courseName
+  ) +
+
+  infoRow(
+    'From → To',
+    `${tierBadge(fromTier)} → ${tierBadge(toTier)}`
+  ) +
+
+  infoRow(
+    'Amount',
+    `₹${formattedAmount}`
+  ) +
+
+  infoRow(
+    'Payment ID',
+    `<span style="font-family:monospace;font-size:12px;">${paymentId}</span>`,
+    false
+  )
+
+)}
+
+`
+  );
+
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `[Admin] Upgrade – ${fromTier} → ${toTier}`,
+    html,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXPORTS
+// ─────────────────────────────────────────────────────────────
 
 module.exports = {
   sendWelcomeEmail,
@@ -322,3 +894,4 @@ module.exports = {
   sendAdminPurchaseAlert,
   sendAdminUpgradeAlert,
 };
+
