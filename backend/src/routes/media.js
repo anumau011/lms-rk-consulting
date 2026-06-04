@@ -14,7 +14,7 @@ const educator = [requireAuth, attachUser, requireRole('educator', 'admin')];
 
 // ── Cloudinary ──────────────────────────────────────────────────────────────
 
-router.post('/cloudinary-signature', ...educator, asyncHandler(mediaCtrl.getCloudinarySignature));
+router.post('/cloudinary-signature', ...educator, );
 router.post('/upload-thumbnail', ...educator, thumbnailUpload.single('thumbnail'), asyncHandler(mediaCtrl.uploadThumbnail));
 router.delete('/delete-thumbnail/:publicId', ...educator, asyncHandler(mediaCtrl.deleteThumbnail));
 
