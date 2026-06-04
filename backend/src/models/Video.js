@@ -7,7 +7,6 @@ const VideoSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
       required: true,
-      index: true,
     },
     instructorId: {
       type: String,
@@ -31,7 +30,6 @@ const VideoSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true,
     },
     videoLibraryId: {
       type: Number,
@@ -110,7 +108,6 @@ const VideoSchema = new mongoose.Schema(
 VideoSchema.index({ courseId: 1, status: 1 });
 VideoSchema.index({ instructorId: 1, courseId: 1 });
 VideoSchema.index({ courseId: 1, isUsedInLecture: 1 });
-VideoSchema.index({ videoGuid: 1 }, { unique: true });
 
 // Statics
 VideoSchema.statics.getUnusedVideos = async function (courseId) {

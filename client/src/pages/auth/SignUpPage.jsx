@@ -325,6 +325,13 @@ const SignUpPage = () => {
                   </button>
                 </InputField>
 
+                <div
+                  id="clerk-captcha"
+                  data-cl-theme="auto"
+                  data-cl-size="normal"
+                  className="flex justify-center"
+                />
+
                 <button
                   type="submit"
                   disabled={loading}

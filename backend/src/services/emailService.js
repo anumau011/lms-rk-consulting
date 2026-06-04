@@ -33,7 +33,7 @@ const ADMIN_EMAIL =
 
 const BRAND_COLOR = '#4f46e5';
 
-const BRAND_NAME = 'RK Consulting LMS';
+const BRAND_NAME = 'RK Consulting';
 
 // ─────────────────────────────────────────────────────────────
 // BASE TEMPLATE

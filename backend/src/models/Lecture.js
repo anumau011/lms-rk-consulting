@@ -6,7 +6,6 @@ const LectureSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
       required: true,
-      index: true,
     },
     sectionId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -34,7 +33,6 @@ const LectureSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Video",
       default: null,
-      index: true,
     },
   },
   {

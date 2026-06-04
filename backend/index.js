@@ -7,7 +7,6 @@ const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const errorHandler = require('./src/middleware/errorHandler');
 const logger = require('./src/utils/logger');
-const job = require("./src/services/cronJobs");
 // Routes
 const webhookRoutes = require('./src/routes/webhooks');
 const adminRoutes = require('./src/routes/admin');
@@ -24,11 +23,12 @@ const clerkMiddleware = require('@clerk/clerk-sdk-node');
 // Step Over: Executes current line without entering functions.
 // Step Out: You entered a function accidentally
 
+
+
 const app = express();
 
 app.use(clerkMiddleware.ClerkExpressWithAuth());
 
-if (process.env.NODE_ENV === "production") job.start();
 connectDB();
 
 // ── Security & Logging ──────────────────────────────────────────────────────
@@ -79,11 +79,6 @@ const server = app.listen(PORT, () => {
 const gracefulShutdown = async () => {
   logger.info('SERVER', 'Shutting down gracefully...');
   
-  // Stop cron job
-  if (job && job.stop) {
-    job.stop();
-    logger.info('SERVER', 'Cron job stopped');
-  }
   
   // Close HTTP server
   server.close(async () => {

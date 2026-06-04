@@ -4,24 +4,22 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "prod": "cross-env NODE_ENV=production nodemon index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.975.0",
-    "@aws-sdk/cloudfront-signer": "^3.975.0",
-    "@aws-sdk/s3-request-presigner": "^3.975.0",
     "@bunny.net/storage-sdk": "^0.3.1",
     "@clerk/clerk-sdk-node": "^4.13.23",
-    "@mux/mux-node": "^12.8.1",
     "axios": "^1.13.5",
     "bullmq": "^5.67.1",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
     "cron": "^4.4.0",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
@@ -33,7 +31,6 @@
     "nodemailer": "^8.0.7",
     "nodemon": "^3.1.11",
     "razorpay": "^2.9.6",
-    "stripe": "^20.2.0",
-    "svix": "^1.84.1"
+    "svix": "^1.95.1"
   }
 }
