@@ -676,7 +676,7 @@ const Player = () => {
                             e.stopPropagation();
                             markLectureAsCompleted(lecture.lectureId);
                           }}
-                          disabled={isCompleted || !canWatchVideo}
+                          disabled={isCompleted}
                           className="flex items-center justify-center w-5 h-5"
                         >
                           <div
