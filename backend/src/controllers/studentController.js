@@ -96,6 +96,56 @@ const getAllCourses = async (req, res) => {
   res.json({ success: true, courses: formattedCourses });
 };
 
+const getTopCourses = async (req, res) => {
+  const courses = await Course.find({ status: 'published' })
+    .select('title slug subtitle thumbnail category level currency pricingTiers averageRating totalReviews enrollmentCount instructorId createdAt')
+    .populate('instructorId', 'firstName lastName')
+    .sort({ averageRating: -1, enrollmentCount: -1 })
+    .limit(4)
+    .lean();
+    
+  const formattedCourses = courses.map((course) => {
+    const displayTiers = normalizePricingTiersForDisplay(course.pricingTiers || []);
+    const basicTier = displayTiers.find((t) => t.tier === 'basic');
+    const goldTier = displayTiers.find((t) => t.tier === 'gold');
+    const platinumTier = displayTiers.find((t) => t.tier === 'platinum'); 
+
+    return {  
+      _id: course._id,
+      title: course.title,
+      subtitle: course.subtitle,
+      thumbnail: course.thumbnail,
+      category: course.category,
+      level: course.level,
+      currency: course.currency?.toUpperCase(),
+      createdAt: course.createdAt,
+      pricingTiers: displayTiers,
+      price: {
+        basic: basicTier != null ? tierFinalAmount(basicTier) : null,
+        gold: goldTier != null ? tierFinalAmount(goldTier) : null,
+        platinum: platinumTier != null ? tierFinalAmount(platinumTier) : null,
+        standard: goldTier != null ? tierFinalAmount(goldTier) : null,
+        premium: platinumTier != null ? tierFinalAmount(platinumTier) : null,
+      },
+      averageRating:
+        course.averageRating != null && course.averageRating !== ''
+          ? Number(course.averageRating)
+          : 0,
+      rating:
+        course.averageRating != null && course.averageRating !== ''
+          ? Number(course.averageRating)
+          : 0,
+      totalReviews: course.totalReviews || 0,
+      enrollmentCount: course.enrollmentCount || 0,
+      instructor: { 
+        name: `${course.instructorId?.firstName || ''} ${course.instructorId?.lastName || ''}`.trim(),
+      },
+      instructorId: course.instructorId,
+    };
+  });
+
+  res.json({ success: true, courses: formattedCourses });
+} 
 /** GET /course/:id — Single course details (public). */
 const getCourseById = async (req, res) => {
   const course = await Course.findById(req.params.id)
@@ -307,4 +357,5 @@ module.exports = {
   getEnrolledCourses,
   getFreePreviews,
   getCourseProgress,
+  getTopCourses
 };

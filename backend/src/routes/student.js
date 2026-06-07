@@ -14,6 +14,7 @@ const userCtrl = require('../controllers/userController');
 // ── Public Routes ───────────────────────────────────────────────────────────
 
 router.get('/course/all', asyncHandler(studentCtrl.getAllCourses));
+router.get('/course/topcourses', asyncHandler(studentCtrl.getTopCourses));
 router.get('/course/:id', asyncHandler(studentCtrl.getCourseById));
 router.get('/course/:courseId/free-previews', asyncHandler(studentCtrl.getFreePreviews));
 router.get('/course/:courseId/feedback', asyncHandler(feedbackCtrl.getCourseFeedback));
