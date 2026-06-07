@@ -15,7 +15,7 @@ export default function PdfViewer({ url }) {
     if (!url) return;
 
     const loadPdf = async () => {
-      const pdf = await pdfjsLib.getDocument(url).promise;
+      const pdf = await pdfjsLib.getDocument({url:url}).promise;
 
       containerRef.current.innerHTML = "";
 
