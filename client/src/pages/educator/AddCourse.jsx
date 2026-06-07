@@ -1249,6 +1249,7 @@ const TabDetails = ({ courseId, api, initialData }) => {
   });
   const [thumbnail, setThumbnail] = useState(null);
   const [thumbnailPreview, setThumbnailPreview] = useState(initialData?.thumbnail || null);
+  const [thumbnailRemoved, setThumbnailRemoved] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { getToken } = useAuth();
 
@@ -1256,7 +1257,9 @@ const TabDetails = ({ courseId, api, initialData }) => {
   useEffect(() => {
     if (initialData) {
       setFormData(prev => ({ ...prev, ...initialData }));
-      if (initialData.thumbnail) setThumbnailPreview(initialData.thumbnail);
+      setThumbnailPreview(initialData.thumbnail || null);
+      setThumbnail(null);
+      setThumbnailRemoved(false);
     }
   }, [initialData]);
 
@@ -1268,6 +1271,7 @@ const TabDetails = ({ courseId, api, initialData }) => {
         return;
       }
       setThumbnail(file);
+      setThumbnailRemoved(false);
       const reader = new FileReader();
       reader.onloadend = () => {
         setThumbnailPreview(reader.result);
@@ -1312,6 +1316,7 @@ const TabDetails = ({ courseId, api, initialData }) => {
       try {
         setThumbnail(null);
         setThumbnailPreview(null);
+        setThumbnailRemoved(true);
 
         // Update course to remove thumbnail
         const result = await api.updateDetails(courseId, {
@@ -1334,25 +1339,22 @@ const TabDetails = ({ courseId, api, initialData }) => {
 
   const handleSave = async () => {
     try {
-      let thumbnailData = formData.thumbnail;
+      const updatedData = { ...formData };
 
-      // Upload thumbnail if changed
+      // Only send thumbnail changes when the user actually changed it.
       if (thumbnail) {
-        thumbnailData = await uploadThumbnail();
-      } else if (!thumbnailPreview) {
-        // Thumbnail was removed
-        thumbnailData = null;
+        updatedData.thumbnail = await uploadThumbnail();
+      } else if (thumbnailRemoved) {
+        updatedData.thumbnail = null;
+      } else {
+        delete updatedData.thumbnail;
       }
-
-      const updatedData = {
-        ...formData,
-        thumbnail: thumbnailData
-      };
 
       const result = await api.updateDetails(courseId, updatedData);
       if (result.success) {
         toast.success('Details saved successfully');
         setThumbnail(null);
+        setThumbnailRemoved(false);
       } else {
         toast.error(result.message);
       }
