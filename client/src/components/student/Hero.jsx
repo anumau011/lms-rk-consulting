@@ -11,32 +11,68 @@ function stripHtml(html) {
   return html.replace(/<[^>]+>/g, "");
 }
 
+const statsData = [
+[
+  {
+    icon: "users",
+    value: "200+",
+    label: "Expert Educators",
+  },
+  {
+    icon: "graduationCap",
+    value: "Industry-Level",
+    label: "Practical Training",
+  }
+],
+[
+
+  {
+    icon: "briefcase",
+    value: "100%",
+    label: "Job-Oriented Curriculum",
+  },
+  {
+    icon: "headphones",
+    value: "< 5 Min",
+    label: "Average Support Response",
+  },
+],
+[
+  {
+    icon: "users",
+    value: "200+",
+    label: "Certified Trainers",
+  },
+  {
+    icon: "graduationCap",
+    value: "Industry-Ready",
+    label: "Hands-On Learning",
+  },
+],
+
+];
+
 function mapCoursesToSlides(courses) {
-  return courses.map((course) => {
-    const tiers = course.pricingTiers || [];
-    const displayTier =
-      tiers.find((t) => t.tier === "basic") ||
-      tiers.find((t) => t.tier === "gold" || t.tier === "standard");
-    const price = displayTier?.price || 0;
-    const discount = displayTier?.discount || 0;
-    const finalPrice = discount > 0 ? price - (price * discount) / 100 : price;
+  return courses.map((course,index) => {
     const description = course.description || course.subtitle || "";
+    const plainDescription = stripHtml(description);
+    const enrolledCount = course.enrollmentCount || 0;
+    const rating = course.rating || course.averageRating || 0;
+    const titleParts = (course.title || "Featured Course").split(" ");
+    const titleAccent = "Course";
     return {
       id: course._id,
-      title: course.title,
-      descDesktop:
-        stripHtml(description).slice(0, 180) +
-        (description.length > 180 ? "..." : ""),
-      descMobile:
-        stripHtml(description).slice(0, 90) +
-        (description.length > 90 ? "..." : ""),
+      badge: course.category || "Featured Course",
+      title: titleParts.slice(0, Math.max(1, titleParts.length - 1)).join(" ") || course.title || "Featured Course",
+      titleAccent,
+      desc: plainDescription.slice(0, 165) + (plainDescription.length > 165 ? "..." : ""),
       image: course.thumbnail,
-      price: finalPrice,
-      originalPrice: price,
-      discount,
-      enrolledCount: course.enrollmentCount || 0,
-      rating: course.rating || course.averageRating || 0,
+      enrolledCount,
+      rating,
       level: course.level || "All Levels",
+      searchPlaceholder: `Search courses… e.g. ${course.title?.split(" ")[0] || "React"}`,
+      stats: statsData[index],
+      courseId: course._id,
     };
   });
 }
@@ -45,54 +81,94 @@ function mapCoursesToSlides(courses) {
 const FALLBACK_SLIDES = [
   {
     id: "slide-1",
-    badge: "Welcome to Online Education",
-    title: "Start learning from the world's",
-    titleAccent: "best sites",
-    desc: "Learn with premium courses, practical projects, and top instructors. Search your next skill and start building your career today.",
-    searchPlaceholder: "Search courses… e.g. React",
+    badge: "Featured Course",
+    title: "Advance Java",
+    titleAccent: "Course",
+    desc: "Learn Java fundamentals, object-oriented programming, collections, Spring basics, and real-world project workflows with practical guidance.",
+    searchPlaceholder: "Search courses… e.g. Java",
     stats: [
-      { icon: "book", value: "9.5K+", label: "Active students taking gifted courses" },
-      { icon: "user", value: "15.5K+", label: "Total enrolled across all courses" },
+      { icon: "star", value: "4.9", label: "Average learner rating" },
+      { icon: "user", value: "340+", label: "Students enrolled" },
     ],
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=900&q=80",
-    floatTop: { icon: "user-circle", value: "150K", label: "Assisted Students", color: "#06b6d4" },
-    floatBottom: "instructors",
+    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80",
+    // floatTop: { icon: "grid", value: "340+", label: "Course enrollments", color: "#06b6d4" },
+    // floatBottom: "rating",
+    // price: 0,
+    // originalPrice: 0,
+    // discount: 0,
+    enrolledCount: 340,
+    rating: 4.9,
+    level: "All Levels",
   },
   {
     id: "slide-2",
-    badge: "Design & Development Tracks",
-    title: "Master design & code with",
-    titleAccent: "expert guidance",
-    desc: "From UI/UX fundamentals to advanced React — our curated tracks guide you from beginner to job-ready in weeks, not years.",
-    searchPlaceholder: "Try 'UI Design' or 'JavaScript'",
+    badge: "Featured Course",
+    title: "React Development",
+    titleAccent: "Track",
+    desc: "From UI building blocks to advanced state management, this track guides you from beginner to job-ready in weeks, not years.",
+    searchPlaceholder: "Try 'React' or 'State Management'",
     stats: [
-      { icon: "grid", value: "340+", label: "Premium curated courses available" },
-      { icon: "layers", value: "48+", label: "Learning paths across disciplines" },
+      { icon: "star", value: "4.8", label: "Average learner rating" },
+      { icon: "user", value: "280+", label: "Students enrolled" },
     ],
-    image: "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=900&q=80",
-    floatTop: { icon: "grid", value: "340+", label: "Courses Available", color: "#8b5cf6" },
+    image: "https://images.unsplash.com/photo-1516321318423-5b0d2c1f2b7c?auto=format&fit=crop&w=900&q=80",
+    floatTop: { icon: "grid", value: "280+", label: "Course enrollments", color: "#8b5cf6" },
     floatBottom: "rating",
+    price: 0,
+    originalPrice: 0,
+    discount: 0,
+    enrolledCount: 280,
+    rating: 4.8,
+    level: "Intermediate",
   },
   {
     id: "slide-3",
-    badge: "Career Outcomes",
-    title: "Build real projects, land your",
-    titleAccent: "dream job",
-    desc: "Every course includes hands-on projects reviewed by industry mentors. Graduate with a portfolio that stands out to top employers.",
-    searchPlaceholder: "Try 'Python' or 'Data Science'",
+    badge: "Featured Course",
+    title: "Digital Marketing",
+    titleAccent: "Masterclass",
+    desc: "Every lesson includes practical campaign planning, content strategy, and performance tracking to help you grow brands online.",
+    searchPlaceholder: "Try 'SEO' or 'Content Strategy'",
     stats: [
-      { icon: "trending-up", value: "92%", label: "Job placement rate within 6 months" },
-      { icon: "users", value: "200+", label: "Expert mentors and instructors" },
+      { icon: "star", value: "4.9", label: "Average learner rating" },
+      { icon: "user", value: "190+", label: "Students enrolled" },
     ],
-    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80",
-    floatTop: { icon: "trending-up", value: "92%", label: "Job Placement Rate", color: "#10b981" },
+    image: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=900&q=80",
+    floatTop: { icon: "grid", value: "190+", label: "Course enrollments", color: "#10b981" },
     floatBottom: "projects",
+    price: 0,
+    originalPrice: 0,
+    discount: 0,
+    enrolledCount: 190,
+    rating: 4.9,
+    level: "Beginner",
   },
 ];
 
 // ---------- SVG icon helper ----------
 const Icon = ({ name, size = 20, color = "currentColor", strokeWidth = 1.8 }) => {
   const icons = {
+    briefcase: (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
+    <rect x="2" y="7" width="20" height="14" rx="2" />
+    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+    <path d="M2 12h20" />
+  </svg>
+),
+
+headphones: (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
+    <path d="M4 12a8 8 0 0 1 16 0" />
+    <rect x="2" y="12" width="4" height="8" rx="2" />
+    <rect x="18" y="12" width="4" height="8" rx="2" />
+  </svg>
+),
+
+graduationCap: (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
+    <path d="M22 10L12 5 2 10l10 5 10-5Z" />
+    <path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5" />
+  </svg>
+),
     book: (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}>
         <path d="M4 7.5h16M7 4h10l2 3.5v11A1.5 1.5 0 0 1 17.5 20h-11A1.5 1.5 0 0 1 5 18.5v-11L7 4Z" />
@@ -245,35 +321,51 @@ const FloatCardBottom = ({ type }) => {
   return null;
 };
 
+// ---------- FloatCard: price (right) ----------
+const FloatPriceCard = ({ price = 0, originalPrice = 0, discount = 0 }) => {
+  const hasDiscount = discount > 0 && originalPrice > price;
+  return (
+    <div className="absolute right-[-20px] top-[60px] flex items-center gap-3 rounded-xl bg-white p-3 shadow-lg ring-1 ring-slate-200/70 z-10">
+      <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white bg-indigo-500">
+        <Icon name="book" size={18} color="white" />
+      </div>
+      <div>
+        <p className="text-2xl font-bold leading-none text-slate-900">₹{price?.toLocaleString?.("en-IN") || price}</p>
+        <div className="flex items-center gap-2">
+          {hasDiscount && (
+            <span className="text-sm text-slate-400 line-through">₹{originalPrice?.toLocaleString?.("en-IN") || originalPrice}</span>
+          )}
+          {hasDiscount && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">{discount}% OFF</span>
+          )}
+        </div>
+        <p className="mt-1 text-xs font-semibold text-slate-500">All pricing</p>
+      </div>
+    </div>
+  );
+};
+
 // ---------- Main Component ----------
 const HeroSection = () => {
   const navigate = useNavigate();
-  const { backendUrl } = useContext(AppContext);
+  const { allCourses } = useContext(AppContext);
 
   const [searchInput, setSearchInput] = useState("");
   const [slides, setSlides] = useState(FALLBACK_SLIDES);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isCourseMode, setIsCourseMode] = useState(false); // true when API data loaded
 
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: true },
     [Autoplay({ delay: 5500, stopOnInteraction: true })]
   );
 
-  // Fetch courses from API
   useEffect(() => {
-    if (!backendUrl) return;
-    fetch(`${backendUrl}/api/course/all`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.courses?.length > 0) {
-          setSlides(mapCoursesToSlides(data.courses.slice(0, 3)));
-          setIsCourseMode(true);
-        }
-      })
-      .catch((err) => console.error("Hero fetch error:", err));
-  }, [backendUrl]);
+    if (allCourses?.length > 0) {
+      setSlides(mapCoursesToSlides(allCourses.slice(0, 3)));
+
+    }
+  }, [allCourses]);
 
   // Track selected slide
   useEffect(() => {
@@ -298,151 +390,7 @@ const HeroSection = () => {
   };
 
   const isVisible = (index) => selectedIndex === index && !isAnimating;
-
-  // ---------- COURSE MODE: dynamic slides from API ----------
-  if (isCourseMode) {
-    return (
-      <section className="relative w-full overflow-hidden bg-gradient-to-br from-cyan-50 via-sky-50 to-white">
-        {/* decorative blobs */}
-        <div className="pointer-events-none absolute top-16 left-8 h-72 w-72 rounded-full bg-cyan-200/30 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-16 right-8 h-96 w-96 rounded-full bg-sky-200/25 blur-3xl" />
-
-        <div ref={emblaRef} className="overflow-hidden">
-          <div className="flex">
-            {slides.map((slide, index) => (
-              <div key={slide.id} className="flex-[0_0_100%]">
-                <div className="mx-auto grid min-h-[580px] w-full max-w-7xl grid-cols-1 items-center gap-10 px-6 py-16 sm:px-8 md:pt-24 md:pb-20 lg:grid-cols-2 lg:gap-8 lg:px-12">
-                  {/* LEFT */}
-                  <div
-                    className={`space-y-5 transition-all duration-700 ${
-                      isVisible(index) ? "translate-x-0 opacity-100" : "-translate-x-8 opacity-0"
-                    } items-start text-left`}
-                  >
-                    <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-white/80 px-4 py-2 shadow-sm backdrop-blur-sm">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-500" />
-                      </span>
-                      <span className="text-sm font-semibold text-cyan-700 tracking-wide">
-                        Featured Course
-                      </span>
-                    </div>
-
-                    <h1 className="text-4xl font-bold leading-tight text-slate-900 sm:text-5xl lg:text-6xl">
-                      {slide.title.split(" ").slice(0, 3).join(" ")}{" "}
-                      <span className="bg-gradient-to-r from-cyan-500 to-sky-500 bg-clip-text text-transparent">
-                        {slide.title.split(" ").slice(3).join(" ")}
-                      </span>
-                    </h1>
-
-                    <p className="hidden max-w-xl text-base leading-7 text-slate-500 sm:text-lg md:block">
-                      {slide.descDesktop}
-                    </p>
-                    <p className="max-w-sm text-sm leading-relaxed text-slate-500 md:hidden">
-                      {slide.descMobile}
-                    </p>
-
-                    {/* Stats row */}
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Icon
-                            key={i}
-                            name="star"
-                            size={14}
-                            color={i < Math.round(slide.rating) ? "#f59e0b" : "#d1d5db"}
-                          />
-                        ))}
-                        <span className="ml-1 font-semibold text-slate-700">
-                          {Number(slide.rating).toFixed(1)}
-                        </span>
-                      </div>
-                      <span className="text-slate-300">|</span>
-                      <span>
-                        {slide.enrolledCount > 0 ? slide.enrolledCount : "New"} students
-                      </span>
-                      <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold capitalize text-cyan-700">
-                        {slide.level}
-                      </span>
-                    </div>
-
-                    {/* CTA */}
-                    <div className="flex flex-wrap items-center gap-4 pt-1">
-                      <button
-                        onClick={() => navigate(`/course/${slide.id}`)}
-                        className="flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-cyan-200 transition hover:-translate-y-0.5 hover:shadow-xl"
-                      >
-                        Enroll Now
-                        <Icon name="play" size={16} color="white" />
-                      </button>
-                      <button
-                        onClick={() => navigate(`/course/${slide.id}`)}
-                        className="flex items-center gap-1 text-sm font-semibold text-slate-600 transition hover:text-cyan-600"
-                      >
-                        Learn More
-                        <Icon name="chevronRight" size={16} color="currentColor" />
-                      </button>
-                    </div>
-
-                    {/* Price */}
-                    {slide.price > 0 && (
-                      <div className="flex items-center gap-3 pt-1">
-                        <span className="text-3xl font-bold text-slate-900">
-                          ₹{slide.price.toLocaleString("en-IN")}
-                        </span>
-                        {slide.discount > 0 && (
-                          <>
-                            <span className="text-lg text-slate-400 line-through">
-                              ₹{slide.originalPrice.toLocaleString("en-IN")}
-                            </span>
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
-                              {slide.discount}% OFF
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RIGHT */}
-                  <div
-                    className={`flex justify-center transition-all delay-150 duration-700 lg:justify-end ${
-                      isVisible(index) ? "translate-x-0 scale-100 opacity-100" : "translate-x-8 scale-95 opacity-0"
-                    }`}
-                  >
-                    <div className="group relative w-full max-w-md lg:max-w-lg">
-                      <div className="absolute -inset-4 rounded-2xl bg-gradient-to-r from-cyan-300/30 to-sky-300/30 blur-2xl transition-all group-hover:blur-3xl" />
-                      <div className="relative overflow-hidden rounded-2xl shadow-2xl ring-1 ring-white/50">
-                        <img
-                          src={slide.image}
-                          alt={slide.title}
-                          className="aspect-video w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-                          <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-white/90 shadow-lg backdrop-blur transition-transform hover:scale-110">
-                            <Icon name="play" size={22} color="#06b6d4" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Nav arrows */}
-        <NavArrow direction="left" onClick={scrollPrev} />
-        <NavArrow direction="right" onClick={scrollNext} />
-
-        {/* Dots */}
-        <SlideDots total={slides.length} current={selectedIndex} onDotClick={(i) => emblaApi?.scrollTo(i)} />
-      </section>
-    );
-  }
-
-  // ---------- STATIC FALLBACK MODE ----------
+  
   return (
     <section className="relative w-full overflow-hidden bg-gradient-to-br from-[#edf8fb] via-[#f0fafb] to-[#e8f6f9] pt-16 pb-14 md:pt-20 md:pb-20">
       {/* Decorative rings */}
@@ -453,7 +401,7 @@ const HeroSection = () => {
       {/* Embla slider */}
       <div ref={emblaRef} className="overflow-hidden">
         <div className="flex">
-          {FALLBACK_SLIDES.map((slide, index) => (
+          {slides.map((slide, index) => (
             <div key={slide.id} className="flex-[0_0_100%]">
               <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-10 px-5 sm:px-8 lg:grid-cols-2 lg:gap-6 lg:px-12">
                 {/* LEFT */}
@@ -530,20 +478,76 @@ const HeroSection = () => {
                   }`}
                 >
                   <div className="relative w-full max-w-[560px]">
-                    {/* Main image */}
-                    <div className="overflow-hidden rounded-bl-[80px] rounded-tl-[80px] rounded-tr-[16px] rounded-br-[16px] bg-white/60 p-1.5 shadow-xl ring-1 ring-cyan-100">
+                    <div className="bg-slate-900 shadow-lg flex items-center justify-center">
                       <img
                         src={slide.image}
-                        alt="Learning"
-                        className="h-[420px] w-full rounded-bl-[72px] rounded-tl-[72px] rounded-tr-[12px] rounded-br-[12px] object-cover sm:h-[500px]"
+                        alt={slide.title}
+                        className="w-full h-auto max-h-[280px] object-contain sm:max-h-[360px]"
                       />
                     </div>
 
-                    {/* Top float card */}
-                    <FloatCardTop data={slide.floatTop} />
+                    <div className="mt-5 flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-500">
+                          {slide.badge}
+                        </p>
+                        <h3 className="mt-2 text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">
+                          {slide.title}
+                        </h3>
+                        <p className="mt-2 max-w-md text-sm leading-6 text-slate-500 sm:text-base">
+                          {slide.descMobile}
+                        </p>
+                      </div>
 
-                    {/* Bottom float card */}
-                    <FloatCardBottom type={slide.floatBottom} />
+                      {slide.price > 0 && (
+                        <div className="rounded-2xl bg-cyan-50 px-4 py-3 text-right">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-600">
+                            Price
+                          </p>
+                          <p className="mt-1 text-2xl font-bold text-slate-900">
+                            ₹{slide.price.toLocaleString("en-IN")}
+                          </p>
+                          {slide.discount > 0 && (
+                            <p className="mt-1 text-xs font-semibold text-red-500">
+                              {slide.discount}% OFF
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-cyan-100 pt-4">
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Icon
+                              key={i}
+                              name="star"
+                              size={14}
+                              color={i < Math.round(slide.rating) ? "#f59e0b" : "#d1d5db"}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-sm font-semibold text-slate-800">
+                          {Number(slide.rating).toFixed(1)}
+                        </span>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-sm text-slate-500">
+                          {slide.enrolledCount > 0 ? `${slide.enrolledCount}+ students` : "New course"}
+                        </span>
+                        <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs font-semibold capitalize text-cyan-700">
+                          {slide.level}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => navigate(`/course/${slide.id}`)}
+                        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-200 transition hover:-translate-y-0.5 hover:shadow-xl"
+                      >
+                        Enroll Now
+                        <Icon name="play" size={16} color="white" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

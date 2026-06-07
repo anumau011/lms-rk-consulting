@@ -1,37 +1,52 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import {
+  Brain,
+  Code2,
+  GraduationCap,
+  Layers3,
+  Megaphone,
+  PenTool,
+  ArrowRight,
+  Sparkles,
+} from "lucide-react";
 
 const categories = [
-  { title: "UI/UX Design Service" },
-  { title: "Software Development" },
-  { title: "Digital Marketing" },
-  { title: "Self Management" },
-  { title: "Application Development" },
-  { title: "UI/UX Graphic Design" },
+  {
+    title: "UI/UX Design Service",
+    icon: PenTool,
+    description: "Shape polished interfaces, user flows, and design systems that make digital products feel intuitive.",
+  },
+  {
+    title: "Software Development",
+    icon: Code2,
+    description: "Build modern apps with clean code, practical architecture, and hands-on engineering exercises.",
+  },
+  {
+    title: "Digital Marketing",
+    icon: Megaphone,
+    description: "Learn to plan campaigns, grow audiences, and measure impact across channels and platforms.",
+  },
+  {
+    title: "Self Management",
+    icon: Brain,
+    description: "Develop focus, discipline, and productivity habits that help you stay consistent and improve faster.",
+  },
+  {
+    title: "Application Development",
+    icon: Layers3,
+    description: "Explore full-stack app building, from product structure and APIs to shipping production-ready features.",
+  },
+  {
+    title: "UI/UX Graphic Design",
+    icon: GraduationCap,
+    description: "Blend visual storytelling with layout, typography, and branding to create standout digital assets.",
+  },
 ];
-
-const IconCircle = () => (
-  <div className="h-20 w-20 rounded-full bg-gradient-to-br from-cyan-50 to-slate-50 ring-1 ring-cyan-100 flex items-center justify-center">
-    <svg
-      className="w-8 h-8 text-cyan-600"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 8c-1.657 0-3 1.343-3 3 0 1.306.835 2.418 2 2.83V18l3-1 3 1v-4.17c1.165-.412 2-1.524 2-2.83 0-1.657-1.343-3-3-3H12z"
-      />
-    </svg>
-  </div>
-);
 
 const CoursesCategories = () => {
   return (
-    <section className="w-full py-14 px-8 md:px-40">
+    <section className="w-full px-4 py-10 sm:px-8 md:px-40 md:py-14">
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between mb-10">
         <div className="text-left">
           <div className="inline-block bg-cyan-50 text-cyan-700 border border-cyan-100 px-3 py-1 rounded-full text-sm font-medium mb-2">
@@ -48,31 +63,55 @@ const CoursesCategories = () => {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-6 lg:gap-6">
         {categories.map((c, idx) => (
           <div
             key={idx}
-            className="bg-cyan-50/40 border border-cyan-100 rounded-xl p-6 flex flex-col items-center text-center space-y-6 shadow-sm hover:bg-cyan-50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+            className="group"
+            style={{ perspective: "1000px" }}
           >
-            <IconCircle />
-            <h3 className="text-lg font-semibold text-gray-800 leading-snug min-h-[56px]">{c.title}</h3>
-            <div className="mt-auto">
-              <Link
-                to="/course-list"
-                onClick={() => scrollTo(0, 0)}
-                className="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-cyan-500 hover:text-cyan-600 transition-colors"
-                aria-label={`Browse ${c.title} courses`}
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
+            <div className="relative min-h-[240px] transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+              <div className="absolute inset-0 rounded-2xl border border-cyan-100 bg-cyan-50/50 p-4 text-center shadow-sm sm:p-6 [backface-visibility:hidden]">
+                <div className="flex h-full flex-col items-center justify-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-cyan-600 shadow-sm ring-1 ring-cyan-100 sm:h-16 sm:w-16">
+                    <c.icon className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </div>
+                  <h3 className="min-h-[56px] text-base font-semibold leading-snug text-gray-800 sm:text-lg">
+                    {c.title}
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Hover to see what this track covers.
+                  </p>
+                </div>
+              </div>
+
+              <div className="absolute inset-0 rounded-2xl border border-cyan-600 bg-cyan-600 p-4 text-white shadow-lg sm:p-6 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between">
+                    <Sparkles className="h-5 w-5 text-cyan-100" />
+                    <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-50">
+                      Details
+                    </span>
+                  </div>
+
+                  <div className="mt-5 flex-1">
+                    <h3 className="text-lg font-semibold leading-snug sm:text-xl">{c.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-cyan-50/90">
+                      {c.description}
+                    </p>
+                  </div>
+
+                  <Link
+                    to="/course-list"
+                    onClick={() => scrollTo(0, 0)}
+                    className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-50"
+                    aria-label={`Browse ${c.title} courses`}
+                  >
+                    Explore
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         ))}

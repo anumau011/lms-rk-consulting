@@ -18,7 +18,7 @@
     "hls.js": "^1.6.15",
     "humanize-duration": "^3.32.1",
     "lucide-react": "^0.562.0",
-    "pdfjs-dist": "^5.5.207",
+    "pdfjs-dist": "^6.0.227",
     "quill": "^2.0.3",
     "rc-progress": "^4.0.0",
     "react": "^19.0.0",

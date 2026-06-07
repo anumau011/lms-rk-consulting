@@ -7,18 +7,19 @@ import InstructorsSection from "../../components/student/InstructorsSection";
 import TestimonialsSection from "../../components/student/TestimonialsSection";
 import CallToAction from "../../components/student/CallToAction";
 import Footer from "../../components/student/Footer";
+import FAQ from "../../components/student/FAQ";
 
 const Home = () => {
   return (
-    <div className="flex flex-col items-center space-y-7 text-center">
+    <div className="flex flex-col items-start space-y-7 text-left w-full">
       <Hero />
       <CoursesCategories />
       <CoursesSection />
-
       <CallToAction />
       <InstructorsSection />
-      <Footer />
       <TestimonialsSection />
+      <FAQ />
+      <Footer />
     </div>
   );
 };
