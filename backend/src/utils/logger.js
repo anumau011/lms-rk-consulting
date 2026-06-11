@@ -9,10 +9,12 @@
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
 
 const currentLevel =
-  process.env.NODE_ENV === 'production' ? LOG_LEVELS.info : LOG_LEVELS.debug;
+  process.env.NODE_ENV === 'production' ? LOG_LEVELS.info : LOG_LEVELS.info;
 
 const formatMessage = (level, tag, args) => {
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().toLocaleString('en-IN',{
+    timeZone: "Asia/Kolkata"
+  });
   const prefix = `[${timestamp}] [${level.toUpperCase()}]${tag ? ` [${tag}]` : ''}`;
   return [prefix, ...args];
 };
