@@ -181,7 +181,7 @@ const SideCard = ({
           <div className="mb-4">
             <div className="flex items-baseline gap-3 mb-1">
               <span className="text-3xl font-black text-gray-900">
-                {displayIsUpgrade ? "+" : ""}{currency}{displayPriceValue.toLocaleString("en-IN")}
+                {currency}{displayPriceValue.toLocaleString("en-IN")}
               </span>
               {/* When showing upgrade delta, don't show full original/struck price or discount */}
               {!displayIsUpgrade && getDiscount() > 0 && (
