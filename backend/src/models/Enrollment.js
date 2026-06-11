@@ -124,7 +124,7 @@ const EnrollmentSchema = new Schema(
     // Course expiration date — student loses access after this date
     expiresAt: {
       type: Date,
-      default: undefined,
+      required: true,
     },
   },
   { timestamps: true }

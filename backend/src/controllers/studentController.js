@@ -233,8 +233,7 @@ const getEnrolledCourses = async (req, res) => {
   })
     .populate({
       path: 'courseId',
-      select: 'title subtitle thumbnail category level averageRating totalReviews instructorId',
-      populate: { path: 'instructorId', select: 'firstName lastName' },
+      select: 'title thumbnail'
     })
     .lean();
 
@@ -249,15 +248,8 @@ const getEnrolledCourses = async (req, res) => {
       return {
         _id: course._id,
         title: course.title,
-        courseTitle: course.title,
-        subtitle: course.subtitle,
-        thumbnail: course.thumbnail,
         courseThumbnail: course.thumbnail,
         category: course.category,
-        level: course.level,
-        averageRating: course.averageRating || 0,
-        totalReviews: course.totalReviews || 0,
-        instructorId: course.instructorId,
         courseContent: content,
         purchaseTier: enrollment.tier,
         userRating: enrollment.courseRating || 0,

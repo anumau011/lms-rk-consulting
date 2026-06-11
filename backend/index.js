@@ -1,6 +1,6 @@
-require('dotenv').config({
-  path: `.env.${process.env.NODE_ENV || "development"}`
-});
+// require('dotenv').config({
+//   path: `.env.${process.env.NODE_ENV || "development"}`
+// });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

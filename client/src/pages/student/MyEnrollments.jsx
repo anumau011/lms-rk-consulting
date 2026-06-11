@@ -150,14 +150,14 @@ const MyEnrollments = () => {
 
               <div className="flex gap-4 pt-2">
                 <img
-                  src={course.courseThumbnail || course.thumbnail}
-                  alt={course.courseTitle || course.title}
+                  src={course.courseThumbnail }
+                  alt={course.title}
                   className="w-20 h-16 object-cover rounded"
                 />
 
                 <div className="flex-1">
                   <p className="font-medium text-gray-800">
-                    {course.courseTitle || course.title}
+                    {course.title}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <Line
@@ -236,14 +236,14 @@ const MyEnrollments = () => {
                     <td className="px-4 py-4 flex gap-4">
                       <div className="relative">
                         <img
-                          src={course.thumbnail}
-                          alt={course.courseTitle || course.title}
+                          src={course.courseThumbnail }
+                          alt={course.title}
                           className="w-24 rounded"
                         />
                       </div>
                       <div className="min-w-[280px]">
                         <p className="font-medium text-gray-900">
-                          {course.courseTitle || course.title}
+                          {course.title}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           <Line

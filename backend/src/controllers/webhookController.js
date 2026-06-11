@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { Webhook } = require("svix");
 const User = require("../models/User");
+const Course = require("../models/Course");
 const Video = require("../models/Video");
 const Enrollment = require("../models/Enrollment");
 const { webhookQueue } = require("../services/queue");
@@ -9,13 +10,26 @@ const logger = require("../utils/logger");
 const {
   normalizeEnrollmentTier,
   enrollmentsByTierKey,
+  calculateEnrollmentExpirationDate,
 } = require("../utils/tierAccess");
 const {
   sendWelcomeEmail,
   sendAdminRegistrationAlert,
+  sendPurchaseConfirmationEmail,
+  sendUpgradeConfirmationEmail,
+  sendAdminPurchaseAlert,
+  sendAdminUpgradeAlert,
 } = require("../services/emailService");
 
 const TAG = "WEBHOOK_CTRL";
+
+function logEmailFailures(results, label) {
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      logger.error(TAG, `${label} email [${index}] failed:`, result.reason?.message);
+    }
+  });
+}
 
 // ── Clerk ───────────────────────────────────────────────────────────────────
 
@@ -260,9 +274,18 @@ const handleRazorpayWebhook = async (req, res) => {
     const enrollment = await Enrollment.findOne({
       "purchase.razorpayOrderId": orderId,
     })
-      .select("courseId tier")
+      .select("courseId tier purchase userId")
       .lean();
     if (enrollment) {
+      const course = await Course.findById(enrollment.courseId)
+        .select("enrollmentExpirationMonths")
+        .lean();
+      const expirationMonths = course?.enrollmentExpirationMonths || 12;
+      const expiresAt = calculateEnrollmentExpirationDate(
+        new Date(),
+        expirationMonths,
+      );
+
       const result = await Enrollment.updateOne(
         { "purchase.razorpayOrderId": orderId, "purchase.status": "PENDING" },
         {
@@ -271,6 +294,7 @@ const handleRazorpayWebhook = async (req, res) => {
             "purchase.razorpayPaymentId": payment.id,
             "purchase.razorpaySignature": payment.signature ?? null,
             "purchase.capturedAt": new Date(),
+            expiresAt,
           },
         },
       );
@@ -284,6 +308,34 @@ const handleRazorpayWebhook = async (req, res) => {
             [`enrollmentsByTier.${tierKey}`]: 1,
           },
         });
+
+        Promise.allSettled([
+          Course.findById(enrollment.courseId).select("title").lean(),
+          User.findById(enrollment.userId).select("email firstName").lean(),
+        ]).then(([courseRes, userRes]) => {
+          const course = courseRes.status === "fulfilled" ? courseRes.value : null;
+          const student = userRes.status === "fulfilled" ? userRes.value : null;
+          if (!student) return;
+
+          const emailData = {
+            to: student.email,
+            firstName: student.firstName,
+            courseName: course?.title || "the course",
+            tier: enrollment.tier,
+            amountPaid: enrollment.purchase?.amountPaid || payment.amount / 100,
+            paymentId: payment.id,
+            expiresAt,
+          };
+
+          Promise.allSettled([
+            sendPurchaseConfirmationEmail(emailData),
+            sendAdminPurchaseAlert({
+              studentEmail: student.email,
+              firstName: student.firstName,
+              ...emailData,
+            }),
+          ]).then((results) => logEmailFailures(results, "Purchase"));
+        }).catch((err) => logger.error(TAG, "Failed to fetch student for email:", err.message));
       }
     }
   }
@@ -292,7 +344,7 @@ const handleRazorpayWebhook = async (req, res) => {
     const enrollment = await Enrollment.findOne({
       "upgrade.razorpayOrderId": orderId,
     })
-      .select("courseId tier upgrade")
+      .select("courseId tier upgrade userId")
       .lean();
     if (enrollment) {
       const newTier = normalizeEnrollmentTier(enrollment.upgrade?.toTier);
@@ -318,6 +370,34 @@ const handleRazorpayWebhook = async (req, res) => {
           [`enrollmentsByTier.${toKey}`]: 1,
         };
         await Course.findByIdAndUpdate(enrollment.courseId, { $inc: inc });
+
+        Promise.allSettled([
+          Course.findById(enrollment.courseId).select("title").lean(),
+          User.findById(enrollment.userId).select("email firstName").lean(),
+        ]).then(([courseRes, userRes]) => {
+          const course = courseRes.status === "fulfilled" ? courseRes.value : null;
+          const student = userRes.status === "fulfilled" ? userRes.value : null;
+          if (!student) return;
+
+          const emailData = {
+            to: student.email,
+            firstName: student.firstName,
+            courseName: course?.title || "the course",
+            fromTier: enrollment.tier,
+            toTier: newTier,
+            amountPaid: enrollment.upgrade?.amountCharged || 0,
+            paymentId: payment.id,
+          };
+
+          Promise.allSettled([
+            sendUpgradeConfirmationEmail(emailData),
+            sendAdminUpgradeAlert({
+              studentEmail: student.email,
+              firstName: student.firstName,
+              ...emailData,
+            }),
+          ]).then((results) => logEmailFailures(results, "Upgrade"));
+        }).catch((err) => logger.error(TAG, "Failed to fetch student for email:", err.message));
       }
     }
   }
