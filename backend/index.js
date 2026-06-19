@@ -18,6 +18,7 @@ const progressRoutes = require('./src/routes/progress');
 const studentRoutes = require('./src/routes/student');
 const testimonialRoutes = require('./src/routes/testimonials');
 const clerkMiddleware = require('@clerk/clerk-sdk-node');
+const contactRoutes = require('./src/routes/contact');
 
 // Initialize
 // debugging
@@ -61,6 +62,7 @@ app.use('/api/v1/courses', courseRoutes);
 app.use('/api/v1/media', mediaRoutes);
 app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/testimonials', testimonialRoutes);
+app.use('/api/v1/contact', contactRoutes);
 
 // Student / Frontend-compatible routes (no v1 prefix to match client)
 app.use('/api', studentRoutes);

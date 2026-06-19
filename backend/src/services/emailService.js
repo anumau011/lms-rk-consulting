@@ -883,6 +883,120 @@ ${infoBox(
 }
 
 // ─────────────────────────────────────────────────────────────
+// 7. SEND CONTACT FORM EMAIL
+// ─────────────────────────────────────────────────────────────
+
+async function sendContactFormEmail({
+  name,
+  email,
+  message
+}) {
+  const html = baseTemplate(
+    'New Contact Form Submission',
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+New Contact Message 📩
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+You have received a new message from the contact form.
+</p>
+
+${infoBox(
+
+  infoRow(
+    'Name',
+    name || '—'
+  ) +
+
+  infoRow(
+    'Email',
+    email || '—'
+  ) +
+
+  infoRow(
+    'Message',
+    message || '—'
+  )
+
+)}
+
+`
+  );
+
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `[Admin] New Contact Message – ${email}`,
+    html,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 8. CONTACT FORM ACKNOWLEDGEMENT (TO USER)
+// ─────────────────────────────────────────────────────────────
+
+async function sendContactAcknowledgementEmail({
+  name,
+  email,
+  message
+}) {
+  const html = baseTemplate(
+    'We Received Your Message',
+    `
+<h2
+  style="
+    font-size:28px;
+    color:#111827;
+    margin:0 0 14px;
+  "
+>
+Thanks for reaching out, ${name || 'there'}! 🙌
+</h2>
+
+<p
+  style="
+    font-size:16px;
+    line-height:1.7;
+    color:#555555;
+  "
+>
+We've received your message and our team will get back to you
+within 24 hours.
+</p>
+
+${infoBox(
+
+  infoRow(
+    'Your Message',
+    message || '—',
+    false
+  )
+
+)}
+
+`
+  );
+
+  return send({
+    to: email,
+    subject: `We've received your message – ${BRAND_NAME}`,
+    html,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────
 
@@ -893,5 +1007,7 @@ module.exports = {
   sendAdminRegistrationAlert,
   sendAdminPurchaseAlert,
   sendAdminUpgradeAlert,
+  sendContactFormEmail,
+  sendContactAcknowledgementEmail
 };
 

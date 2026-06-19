@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import Footer from "../../components/student/Footer";
 import toast from "react-hot-toast";
 
@@ -9,6 +10,7 @@ const Contact = () => {
         message: "",
     });
     const [loading, setLoading] = useState(false);
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -22,34 +24,24 @@ const Contact = () => {
             return;
         }
 
-        const scriptURL =
-            "https://script.google.com/macros/s/AKfycbzmrm1vG5pfq2P8nwf1mgDrVlWSlIyUq9kk0dN7LGOmJ93KM9lc1P3pqWHWjJZen6L_/exec";
-
         setLoading(true);
-        toast.info("Sending message...");
 
-        try {
-            const response = await fetch(scriptURL, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(form),
+        const submitPromise = axios
+            .post(`${backendUrl}/api/v1/contact`, form)
+            .then(({ data }) => {
+                if (!data.success) {
+                    throw new Error("Something went wrong ❌");
+                }
+                setForm({ name: "", email: "", message: "" });
             });
 
-            const result = await response.json();
-
-            if (result.success) {
-                toast.success("Message sent successfully 📩");
-                setForm({ name: "", email: "", message: "" });
-            } else {
-                toast.error("Something went wrong ❌");
-            }
-        } catch (error) {
-            toast.error("Network error ⚠");
-        } finally {
-            setLoading(false);
-        }
+        toast
+            .promise(submitPromise, {
+                loading: "Sending message...",
+                success: "Message sent successfully 📩",
+                error: (err) => err.message || "Network error ⚠",
+            })
+            .finally(() => setLoading(false));
     };
 
     return (
