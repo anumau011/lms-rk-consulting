@@ -143,15 +143,11 @@ CourseSchema.methods.canPublish = function () {
 };
 
 // Pre-save hook to calculate final prices
-// Pre-save hook to calculate final prices
 CourseSchema.pre('save', async function () {
     if (this.pricingTiers && this.pricingTiers.length > 0) {
         this.pricingTiers.forEach(tier => {
-            if (tier.discount > 0) {
-                tier.finalPrice = Math.round(tier.price * (1 - tier.discount / 100));
-            } else {
-                tier.finalPrice = tier.price;
-            }
+            tier.price = Math.round(tier.price);
+            tier.finalPrice = Math.round((tier.price * (100 - (tier.discount || 0))) / 100);
         });
     }
 });
