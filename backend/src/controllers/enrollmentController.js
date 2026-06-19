@@ -18,6 +18,7 @@ const {
   isUpgradePath,
   normalizePricingTiersForDisplay,
   calculateEnrollmentExpirationDate,
+  tierFinalAmount,
 } = require('../utils/tierAccess');
 const Razorpay = require('razorpay');
 
@@ -39,9 +40,8 @@ function getRazorpay() {
 
 function computeAmount(tier) {
   const baseAmount = tier.price || 0;
-  const discount = tier.discount || 0;
-  const discountAmount = (baseAmount * discount) / 100;
-  const finalAmount = baseAmount - discountAmount;
+  const finalAmount = tierFinalAmount(tier);
+  const discountAmount = baseAmount - finalAmount;
   return { baseAmount, discountAmount, finalAmount };
 }
 

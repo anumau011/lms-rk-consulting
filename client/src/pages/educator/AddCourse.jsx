@@ -761,7 +761,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                       <div className="flex justify-end">
                         <input
                           type="file"
-                          accept=".pdf,.docx,.txt,.doc"
+                          accept=".pdf"
                           onChange={handleNotesSelect}
                           className="hidden"
                           id={`notes-upload-more-${lecture._id}`}
@@ -864,7 +864,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                           <div className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg">
                             <input
                               type="file"
-                              accept=".pdf,.docx,.txt,.doc"
+                              accept=".pdf"
                               onChange={handleNotesSelect}
                               className="hidden"
                               id={`notes-upload-${lecture._id}`}
