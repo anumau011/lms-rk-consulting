@@ -715,7 +715,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                           </label>
                         </div>
                         <p className="text-xs text-gray-600">
-                          <span className="font-semibold">Note:</span> All files should be at least 720p and less than 4.0 GB.
+                          <span className="font-semibold">Note:</span> All files should be at least 720p.
                         </p>
                       </div>
                     )}
@@ -880,7 +880,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
                             </label>
                           </div>
                           <p className="text-xs text-gray-600">
-                            <span className="font-semibold">Note:</span> PDF, DOCX, TXT files up to 5MB.
+                            <span className="font-semibold">Note:</span> PDF Only 100MB.
                           </p>
                         </div>
                       )}
