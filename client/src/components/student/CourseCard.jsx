@@ -166,7 +166,7 @@ const CourseCard = ({ course }) => {
           <div className="flex items-center gap-3">
             <img
               src={
-                instructor.avatar ||
+                instructor.imageUrl ||
                 "https://i.pravatar.cc/150?img=1"
               }
               alt="Instructor"

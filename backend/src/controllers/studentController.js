@@ -46,18 +46,79 @@ const getCourseContent = async (courseId) => {
   );
 };
 
+// {
+//             "_id": "69f5a83cc719a7d08f192785",
+//             "title": "UI PATH",
+//             "subtitle": "Learn Ui Paht with hands on experience",
+//             "thumbnail": "https://res.cloudinary.com/ddazw6p0s/image/upload/v1780814380/lms/thumbnails/arjfwy8idymbooir8wb5.jpg",
+//             "category": "other",
+//             "level": "all-levels",
+//             "currency": "INR",
+//             "createdAt": "2026-05-02T07:31:08.316Z",
+//             "pricingTiers": [
+//                 {
+//                     "tier": "basic",
+//                     "price": 170,
+//                     "discount": 1.5,
+//                     "features": [
+//                         "Only Notes Acccess"
+//                     ],
+//                     "isActive": true,
+//                     "finalPrice": 167
+//                 },
+//                 {
+//                     "tier": "gold",
+//                     "price": 199,
+//                     "discount": 1.5,
+//                     "features": [
+//                         "Notes Access",
+//                         "Video Access"
+//                     ],
+//                     "isActive": true,
+//                     "finalPrice": 196
+//                 },
+//                 {
+//                     "tier": "platinum",
+//                     "price": 249,
+//                     "discount": 1.5,
+//                     "features": [
+//                         "Notes Access",
+//                         "Video Access",
+//                         "Notes Can Download"
+//                     ],
+//                     "isActive": true,
+//                     "finalPrice": 245
+//                 }
+//             ],
+//             "price": {
+//                 "basic": 167,
+//                 "gold": 196,
+//                 "platinum": 245,
+//                 "standard": 196,
+//                 "premium": 245
+//             },
+//             "averageRating": 4,
+//             "rating": 4,
+//             "totalReviews": 1,
+//             "enrollmentCount": 4,
+//             "instructor": {
+//                 "name": "Anubhav Maurya"
+//             },
+//             "instructorId": {
+//                 "_id": "user_3D9vBjiUdpvf7cvzOL5SvwurWsk",
+//                 "firstName": "Anubhav",
+//                 "lastName": "Maurya"
+//             }
+//         },
 /** GET /course/all — Public course catalog. */
 const getAllCourses = async (req, res) => {
   const courses = await Course.find({ status: 'published' })
-    .select('title slug subtitle thumbnail category level currency pricingTiers averageRating totalReviews enrollmentCount instructorId createdAt')
-    .populate('instructorId', 'firstName lastName')
+    .select('title subtitle thumbnail pricingTiers averageRating totalReviews enrollmentCount instructorId updatedAt')
+    .populate('instructorId', 'firstName lastName imageUrl')
     .lean();
 
   const formattedCourses = courses.map((course) => {
     const displayTiers = normalizePricingTiersForDisplay(course.pricingTiers || []);
-    const basicTier = displayTiers.find((t) => t.tier === 'basic');
-    const goldTier = displayTiers.find((t) => t.tier === 'gold');
-    const platinumTier = displayTiers.find((t) => t.tier === 'platinum');
 
     return {
       _id: course._id,
@@ -67,15 +128,8 @@ const getAllCourses = async (req, res) => {
       category: course.category,
       level: course.level,
       currency: course.currency?.toUpperCase(),
-      createdAt: course.createdAt,
       pricingTiers: displayTiers,
-      price: {
-        basic: basicTier != null ? tierFinalAmount(basicTier) : null,
-        gold: goldTier != null ? tierFinalAmount(goldTier) : null,
-        platinum: platinumTier != null ? tierFinalAmount(platinumTier) : null,
-        standard: goldTier != null ? tierFinalAmount(goldTier) : null,
-        premium: platinumTier != null ? tierFinalAmount(platinumTier) : null,
-      },
+
       averageRating:
         course.averageRating != null && course.averageRating !== ''
           ? Number(course.averageRating)
@@ -88,8 +142,9 @@ const getAllCourses = async (req, res) => {
       enrollmentCount: course.enrollmentCount || 0,
       instructor: {
         name: `${course.instructorId?.firstName || ''} ${course.instructorId?.lastName || ''}`.trim(),
+        imageUrl: course.instructorId?.imageUrl || null,
       },
-      instructorId: course.instructorId,
+
     };
   });
 
@@ -139,8 +194,8 @@ const getTopCourses = async (req, res) => {
       enrollmentCount: course.enrollmentCount || 0,
       instructor: { 
         name: `${course.instructorId?.firstName || ''} ${course.instructorId?.lastName || ''}`.trim(),
+        imageUrl: course.instructorId?.imageUrl || null,
       },
-      instructorId: course.instructorId,
     };
   });
 
@@ -149,17 +204,15 @@ const getTopCourses = async (req, res) => {
 /** GET /course/:id — Single course details (public). */
 const getCourseById = async (req, res) => {
   const course = await Course.findById(req.params.id)
-    .select('title subtitle description thumbnail category level currency pricingTiers averageRating totalReviews enrollmentCount instructorId createdAt')
-    .populate('instructorId', 'firstName lastName')
+    .select('title description thumbnail category level currency pricingTiers averageRating totalReviews enrollmentCount instructorId updatedAt')
+    .populate('instructorId', 'firstName lastName imageUrl')
     .lean();
 
   if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
 
   const courseContent = await getCourseContent(course._id);
   const displayTiers = normalizePricingTiersForDisplay(course.pricingTiers || []);
-  const basicTier = displayTiers.find((t) => t.tier === 'basic');
-  const goldTier = displayTiers.find((t) => t.tier === 'gold');
-  const platinumTier = displayTiers.find((t) => t.tier === 'platinum');
+
 
   res.json({
     success: true,
@@ -172,17 +225,16 @@ const getCourseById = async (req, res) => {
       category: course.category,
       level: course.level,
       currency: course.currency?.toUpperCase(),
-      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
       pricingTiers: displayTiers,
-      price: {
-        basic: basicTier != null ? tierFinalAmount(basicTier) : null,
-        gold: goldTier != null ? tierFinalAmount(goldTier) : null,
-        platinum: platinumTier != null ? tierFinalAmount(platinumTier) : null,
-      },
+
       enrollmentCount: course.enrollmentCount || 0,
       averageRating: course.averageRating || 0,
       totalReviews: course.totalReviews || 0,
-      instructorId: course.instructorId,
+      instructor: {
+        name: `${course.instructorId?.firstName || ''} ${course.instructorId?.lastName || ''}`.trim(),
+        imageUrl: course.instructorId?.imageUrl || null,
+      },
       courseContent,
       courseRatings: [],
     },
