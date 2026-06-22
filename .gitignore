@@ -178,3 +178,5 @@ venv/
 env/
 ENV/
 node_modules
+backend/.env.development
+backend/.env.development
