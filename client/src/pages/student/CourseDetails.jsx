@@ -195,7 +195,6 @@ const SideCard = ({
             </div>
             {!displayIsUpgrade && getDiscount() > 0 && (
               <p className="text-xs font-semibold text-red-600">
-                🔥 <span className="text-gray-700 font-bold">{getDiscount()} hours</span> left at this price!
               </p>
             )}
             {displayIsUpgrade && (
@@ -597,7 +596,7 @@ const CourseDetails = () => {
           <p className="text-xs text-purple-300 mb-4">
             Created by{" "}
             <span className="text-purple-200 underline cursor-pointer hover:text-white">
-              {courseData.instructorId?.firstName} {courseData.instructorId?.lastName || ""}
+              {courseData.instructor?.name}
             </span>
           </p>
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-purple-300">
@@ -614,7 +613,7 @@ const CourseDetails = () => {
             <span className="flex items-center gap-1.5">
               <RefreshCw size={12} />
               Last updated{" "}
-              {new Date(courseData.createdAt).toLocaleDateString("en-US", {
+              {new Date(courseData.updatedAt).toLocaleDateString("en-US", {
                 month: "numeric",
                 year: "numeric",
               })}
@@ -746,12 +745,14 @@ const CourseDetails = () => {
             <section className="mb-8">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Instructor</h2>
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-full bg-[#5624d0] flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 select-none">
-                  {(courseData.instructorId?.firstName || "I")[0].toUpperCase()}
-                </div>
+                <img
+                  src={courseData.instructor?.imageUrl}
+                  alt="Profile"
+                  className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                />
                 <div>
                   <p className="font-bold text-[#5624d0] hover:underline cursor-pointer text-base">
-                    {courseData.instructorId?.firstName} {courseData.instructorId?.lastName || ""}
+                    {courseData.instructor?.name}
                   </p>
                   <p className="text-sm text-gray-500 mb-2">Course Instructor</p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">

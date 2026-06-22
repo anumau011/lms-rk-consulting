@@ -34,6 +34,7 @@ const UserSchema = new mongoose.Schema({
     default: 'student',
     required: true
   },
+  imageUrl: { type: String},
   stripeCustomerId: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
