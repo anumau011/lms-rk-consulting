@@ -1,29 +1,42 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import { Globe, Linkedin, Twitter, Instagram, Facebook, Youtube } from "lucide-react";
 
-const instructors = [
-	{
-		name: "William Samuel",
-		image:
-			"https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1000&q=85",
-	},
-	{
-		name: "Olivia Sophia",
-		image:
-			"https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=1000&q=85",
-	},
-	{
-		name: "Jacob Mason",
-		image:
-			"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=1000&q=85",
-	},
-	{
-		name: "Isabella Grace",
-		image:
-			"https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=85",
-	},
+const SOCIAL_FIELDS = [
+	{ key: "website", Icon: Globe },
+	{ key: "linkedin", Icon: Linkedin },
+	{ key: "twitter", Icon: Twitter },
+	{ key: "instagram", Icon: Instagram },
+	{ key: "facebook", Icon: Facebook },
+	{ key: "youtube", Icon: Youtube },
 ];
 
 const InstructorsSection = () => {
+	const [instructors, setInstructors] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
+	useEffect(() => {
+		const fetchInstructors = async () => {
+			try {
+				const { data } = await axios.get(
+					`${backendUrl}/api/v1/educators/public`
+				);
+				if (data.success && data.educators.length > 0) {
+					setInstructors(data.educators);
+				}
+			} catch {
+				// Silently fail — no instructors to show
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchInstructors();
+	}, [backendUrl]);
+
+	if (loading) return null;
+	if (instructors.length === 0) return null;
+
 	return (
 		<section className="py-14 px-8 md:px-40 w-full">
 			<h2 className="text-3xl font-medium text-gray-800">Our Instructors</h2>
@@ -33,17 +46,51 @@ const InstructorsSection = () => {
 
 			<div className="grid grid-cols-2 md:grid-cols-4 gap-5 mt-10">
 				{instructors.map((instructor) => (
-					<article
-						key={instructor.name}
-					>
-						<img
-							src={instructor.image}
-							alt={instructor.name}
-							className="h-40 w-40 mx-auto object-cover rounded-full"
-						/>
+					<article key={instructor._id}>
+						{instructor.imageUrl ? (
+							<img
+								src={instructor.imageUrl}
+								alt={instructor.name}
+								className="h-40 w-40 mx-auto object-cover rounded-full"
+							/>
+						) : (
+							<div className="h-40 w-40 mx-auto rounded-full bg-indigo-100 flex items-center justify-center">
+								<span className="text-indigo-600 font-bold text-3xl">
+									{instructor.name.charAt(0).toUpperCase()}
+								</span>
+							</div>
+						)}
 						<h3 className="mt-3 text-base font-semibold text-gray-800 text-center">
 							{instructor.name}
 						</h3>
+						{instructor.designation && (
+							<p className="text-sm text-indigo-600 text-center">
+								{instructor.designation}
+							</p>
+						)}
+						{instructor.about && (
+							<p className="text-xs text-gray-500 text-center mt-1 line-clamp-2">
+								{instructor.about}
+							</p>
+						)}
+						{instructor.socialLinks &&
+							Object.values(instructor.socialLinks).some(Boolean) && (
+								<div className="flex items-center justify-center gap-3 mt-2">
+									{SOCIAL_FIELDS.filter(
+										({ key }) => instructor.socialLinks[key]
+									).map(({ key, Icon }) => (
+										<a
+											key={key}
+											href={instructor.socialLinks[key]}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="text-gray-400 hover:text-indigo-600 transition"
+										>
+											<Icon className="w-4 h-4" />
+										</a>
+									))}
+								</div>
+							)}
 					</article>
 				))}
 			</div>

@@ -1,7 +1,7 @@
 import React, { useContext, useState } from "react";
 import { AppContext } from "../../context/AppContext";
 import { NavLink } from "react-router-dom";
-import { Home, PlusCircle, Book, Users, ChevronLeft, ChevronRight, FileText, MessageSquareQuote, Archive } from "lucide-react";
+import { Home, PlusCircle, Book, Users, ChevronLeft, ChevronRight, FileText, MessageSquareQuote, Archive,UserPen  } from "lucide-react";
 
 const Sidebar = () => {
   const { isEducator } = useContext(AppContext);
@@ -15,6 +15,7 @@ const Sidebar = () => {
     { name: "Archive", path: "/educator/archive", Icon: Archive },
     { name: "Students Enrolled", path: "/educator/student-enrolled", Icon: Users },
     { name: "Testimonials", path: "/educator/testimonials", Icon: MessageSquareQuote },
+    { name: "Educators", path: "/educator/educators", Icon: UserPen },
   ];
 
   if (!isEducator) return null;
