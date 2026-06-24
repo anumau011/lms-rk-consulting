@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Course = require('../models/Course');
 const Section = require('../models/Section');
 const Lecture = require('../models/Lecture');
@@ -203,6 +204,10 @@ const getTopCourses = async (req, res) => {
 } 
 /** GET /course/:id — Single course details (public). */
 const getCourseById = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ success: false, message: 'Course not found' });
+  }
+
   const course = await Course.findById(req.params.id)
     .select('title description thumbnail category level currency pricingTiers averageRating totalReviews enrollmentCount instructorId updatedAt')
     .populate('instructorId', 'firstName lastName imageUrl')

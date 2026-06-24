@@ -1,7 +1,8 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppContext } from "../../context/AppContext";
 import Loading from "../../components/student/Loading";
+import CourseNotFound from "../../components/student/CourseNotFound";
 import humanizeDuration from "humanize-duration";
 import Footer from "../../components/student/Footer";
 import axios from "axios";
@@ -325,6 +326,7 @@ const CourseDetails = () => {
   const navigate = useNavigate();
 
   const [courseData, setCourseData] = useState(null);
+  const [courseNotFound, setCourseNotFound] = useState(false);
   const [openSections, setOpenSections] = useState({ 0: true });
   const [isAlreadyEnrolled, setIsAlreadyEnrolled] = useState(false);
   const [hasPlatinumAccess, setHasPlatinumAccess] = useState(false);
@@ -343,9 +345,16 @@ const CourseDetails = () => {
   const fetchCourseData = async () => {
     try {
       const { data } = await axios.get(backendUrl + "/api/course/" + id);
-      if (data.success) setCourseData(data.course);
-      else toast.error(data.message);
-    } catch (e) { toast.error(e.message); }
+      if (data.success) {
+        setCourseData(data.course);
+      } else {
+        setCourseNotFound(true);
+        // toast.error(data.message);
+      }
+    } catch (e) {
+      setCourseNotFound(true);
+      toast.error(e.response?.data?.message || "Course not found");
+    }
   };
 
   const fetchCourseFeedback = async () => {
@@ -360,7 +369,11 @@ const CourseDetails = () => {
     }
   };
 
+  const hasFetchedRef = useRef(false);
+
   useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchCourseData();
     fetchCourseFeedback();
   }, []);
@@ -516,6 +529,7 @@ const CourseDetails = () => {
     return t;
   };
 
+  if (courseNotFound) return <CourseNotFound />;
   if (!courseData) return <Loading />;
 
   const rating = calculateRating(courseData);

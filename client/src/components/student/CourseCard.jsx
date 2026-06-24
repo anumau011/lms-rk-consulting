@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { File, UserRound, Play } from "lucide-react";
+import { Share2, UserRound, Play } from "lucide-react";
+import toast from "react-hot-toast";
 import { AppContext } from "../../context/AppContext";
 
 const TIER_STYLES = {
@@ -101,13 +102,20 @@ const CourseCard = ({ course }) => {
     : 4.7;
 
   const ratingValue = Number(rating) || 0;
-  const lessonsCount =
-    Number(course.totalLessons || course.lessonCount || course.lectureCount) ||
-    (Array.isArray(course.sections)
-      ? course.sections.reduce((sum, section) => sum + (section?.lectures?.length || 0), 0)
-      : 0);
   const studentsCount = Number(course.enrollmentCount) || 0;
   const reviewsCount = Number(course.totalReviews) || 0;
+
+  const handleShare = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/course/${course._id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Course link copied successfully");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
 
   return (
     <div
@@ -139,16 +147,20 @@ const CourseCard = ({ course }) => {
       {/* Content */}
       <div className="p-4 flex flex-col flex-1">
         {/* Title */}
-        <h3 className="text-[15px] font-semibold leading-5 text-slate-900 line-clamp-2 min-h-[40px] text-left">
+        <h3 className="text-[15px] font-semibold leading-snug tracking-tight text-slate-900 line-clamp-2 min-h-[25px] text-left mb-0">
           {course.title}
         </h3>
 
         {/* Stats */}
         <div className="flex items-center justify-between mt-3 pb-3 border-b border-slate-100 text-xs text-slate-500">
-          <div className="flex items-center gap-1">
-            <File size={13} />
-            <span>{lessonsCount} Lessons</span>
-          </div>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center gap-1 hover:text-slate-700 transition-colors"
+          >
+            <Share2 size={13} />
+            <span>Share</span>
+          </button>
 
           <div className="flex items-center gap-1">
             <UserRound size={13} />
