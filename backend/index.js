@@ -1,6 +1,6 @@
-require('dotenv').config({
-  path: `.env.${process.env.NODE_ENV || "development"}`
-});
+// require('dotenv').config({
+//   path: `.env.${process.env.NODE_ENV || "development"}`
+// });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -20,6 +20,7 @@ const testimonialRoutes = require('./src/routes/testimonials');
 const educatorRoutes = require('./src/routes/educators');
 const clerkMiddleware = require('@clerk/clerk-sdk-node');
 const contactRoutes = require('./src/routes/contact');
+const newsletterRoutes = require('./src/routes/newsletter');
 
 // Initialize
 // debugging
@@ -65,6 +66,7 @@ app.use('/api/v1/progress', progressRoutes);
 app.use('/api/v1/testimonials', testimonialRoutes);
 app.use('/api/v1/educators', educatorRoutes);
 app.use('/api/v1/contact', contactRoutes);
+app.use('/api/v1/newsletter', newsletterRoutes);
 
 // Student / Frontend-compatible routes (no v1 prefix to match client)
 app.use('/api', studentRoutes);

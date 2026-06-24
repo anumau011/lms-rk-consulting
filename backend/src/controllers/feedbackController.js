@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Course = require('../models/Course');
 const Enrollment = require('../models/Enrollment');
 
@@ -100,6 +101,9 @@ const addFeedback = async (req, res) => {
 const getCourseFeedback = async (req, res) => {
   const { courseId } = req.params;
   if (!courseId) return res.status(400).json({ success: false, message: 'courseId is required' });
+  if (!mongoose.Types.ObjectId.isValid(courseId)) {
+    return res.status(404).json({ success: false, message: 'Course not found' });
+  }
 
   const feedbackList = await Enrollment.find({
     courseId,
