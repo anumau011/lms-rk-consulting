@@ -100,23 +100,6 @@ const Sidebar = () => {
           )}
         </div>
 
-        {/* Footer Profile */}
-        <div className="mt-auto">
-          <div className={`items-center bg-white border border-gray-100 shadow-sm rounded-lg transition-all duration-300 ${
-            isCollapsed 
-              ? 'hidden md:flex justify-center p-2' 
-              : 'hidden md:flex gap-3 p-3'
-          }`}>
-            {/* Avatar */}
-            <div className={`rounded-full bg-gray-200 flex-shrink-0 ${isCollapsed ? 'w-8 h-8' : 'w-10 h-10'}`} aria-hidden="true"></div>
-            
-            {/* Profile Info - Hidden when collapsed */}
-            <div className={`transition-all duration-300 overflow-hidden ${isCollapsed ? 'hidden' : 'block'}`}>
-              <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">You</div>
-              <div className="text-xs text-gray-500 whitespace-nowrap">Educator account</div>
-            </div>
-          </div>
-        </div>
       </nav>
     </aside>
   );

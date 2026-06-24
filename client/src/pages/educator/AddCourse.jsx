@@ -283,7 +283,7 @@ const DraggableLecture = ({ lecture, index, sectionId, onMove, onDelete, onEdit,
     setUploading(false);
     setUploadProgress(0);
     setSelectedFile(null);
-    toast.info('Upload cancelled');
+    toast.success('Upload cancelled successfully');
   };
 
   const handleRemoveVideo = async () => {
