@@ -12,6 +12,7 @@ import AddCourse from "./pages/educator/AddCourse";
 import MyCourses from "./pages/educator/MyCourses";
 import StudentsEnrolled from "./pages/educator/StudentsEnrolled";
 import ManageTestimonials from "./pages/educator/ManageTestimonials";
+import ManageEducators from "./pages/educator/ManageEducators";
 import Drafts from "./pages/educator/Drafts";
 import Archive from "./pages/educator/Archive";
 import Navbar from "./components/student/Navbar";
@@ -123,6 +124,7 @@ const App = () => {
           <Route path="archive" element={<Archive />} />
           <Route path="student-enrolled" element={<StudentsEnrolled />} />
           <Route path="testimonials" element={<ManageTestimonials />} />
+          <Route path="educators" element={<ManageEducators />} />
         </Route>
         
         {/* 404 Catch-all Route */}

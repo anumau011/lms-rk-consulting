@@ -151,9 +151,6 @@ const Player = () => {
     });
   };
 
-  const handleJumpToTime = () => {
-    toast("Timestamp seek is not available in this embedded player.");
-  };
 
   const fetchVideoUrl = async (lectureId) => {
     const requestId = Date.now();
@@ -554,15 +551,6 @@ const Player = () => {
                   <h1 className="text-xl font-bold text-gray-900">
                     {playerData?.chapter}.{playerData?.lecture} {playerData?.lectureTitle}
                   </h1>
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <h3 className="font-semibold text-gray-800 mb-2 text-sm">About this lecture</h3>
-                    <div
-                      className="text-gray-600 text-sm leading-relaxed"
-                      dangerouslySetInnerHTML={{
-                        __html: (courseData?.description || courseData?.subtitle || "No description available.").substring(0, 500),
-                      }}
-                    />
-                  </div>
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => markLectureAsCompleted(playerData?.lectureId)}
@@ -594,27 +582,29 @@ const Player = () => {
                         <div key={note._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
 
                           <div className="flex items-start justify-between gap-3 mb-2">
-                            <button onClick={() => handleJumpToTime(note.timestamp)} className="flex items-center gap-1.5 text-[#a435f0] hover:text-[#8710d8] text-xs font-semibold transition-colors">
+                            <div className="flex items-center gap-1.5 text-[#a435f0] hover:text-[#8710d8] text-xs font-semibold transition-colors">
                               <FileText />{note.name || "Untitled"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleViewNote(note)}
-                              className="text-gray-400 hover:text-[#a435f0] transition-colors"
-                              title="View note"
-                            >
-                              <Eye size={20} />
-                            </button>
-                            {isPlatinum && (
+                            </div>
+                            <div className="flex items-center gap-10">
                               <button
                                 type="button"
-                              onClick={() => handleDownloadNote(note)}
-                              className="text-gray-400 hover:text-[#a435f0] transition-colors"
-                              title="Download note"
-                            >
-                              <Download size={20} />
-                            </button>
-                            )}
+                                onClick={() => handleViewNote(note)}
+                                className="text-gray-400 hover:text-[#a435f0] transition-colors"
+                                title="View note"
+                              >
+                                <Eye size={20} />
+                              </button>
+                              {isPlatinum && (
+                                <button
+                                  type="button"
+                                onClick={() => handleDownloadNote(note)}
+                                className="text-gray-400 hover:text-[#a435f0] transition-colors"
+                                title="Download note"
+                              >
+                                <Download size={20} />
+                              </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}

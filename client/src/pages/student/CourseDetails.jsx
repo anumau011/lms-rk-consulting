@@ -429,7 +429,7 @@ const CourseDetails = () => {
       plan === "basic" ? "BASIC" : plan === "gold" ? "GOLD" : "PLATINUM"
     );
     try {
-      if (!userData) return toast.warn("Login to Enroll");
+      if (!userData) return toast.error("Login to Enroll");
       if (isAlreadyEnrolled) {
         const current = normalizeTier(userData.tierByCourse?.[courseData._id] || "GOLD");
         if (tierRank(targetUpper) <= tierRank(current)) {
