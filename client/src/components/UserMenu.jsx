@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
 import { useClerk, useUser } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Camera } from "lucide-react";
-import toast from "react-hot-toast";
+import { LogOut, Pencil } from "lucide-react";
 import { AppContext } from "../context/AppContext";
+import EditProfileModal from "./student/EditProfileModal";
 
 const UserMenu = () => {
   const { user } = useUser();
@@ -13,9 +13,9 @@ const UserMenu = () => {
   const { setIsEducator, setUserData } = useContext(AppContext);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const menuRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -29,44 +29,6 @@ const UserMenu = () => {
     return () =>
       document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const handleProfileUpload = async (e) => {
-    const file = e.target.files?.[0];
-
-    if (!file || !user) return;
-
-    // Optional validation
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image size should be less than 5 MB");
-      return;
-    }
-
-    try {
-      const uploadPromise = user.setProfileImage({ file });
-
-      toast.promise(uploadPromise, {
-        loading: "Uploading profile picture...",
-        success: "Profile picture updated successfully!",
-        error: "Failed to upload profile picture",
-      });
-
-      await uploadPromise;
-      await user.reload();
-
-      setIsOpen(false);
-    } catch (error) {
-      console.error(error);
-      toast.error("Something went wrong");
-    }
-
-    // Reset input so same image can be selected again
-    e.target.value = "";
-  };
 
   if (!user) return null;
 
@@ -96,23 +58,17 @@ const UserMenu = () => {
             </p>
           </div>
 
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleProfileUpload}
-            className="hidden"
-          />
-
           {/* Actions */}
           <div className="p-1.5">
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                setIsOpen(false);
+                setIsEditProfileOpen(true);
+              }}
               className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors font-medium"
             >
-              <Camera size={16} />
-              Upload Profile Picture
+              <Pencil size={16} />
+              Edit Profile
             </button>
 
             <button
@@ -130,6 +86,10 @@ const UserMenu = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {isEditProfileOpen && (
+        <EditProfileModal onClose={() => setIsEditProfileOpen(false)} />
       )}
     </div>
   );
